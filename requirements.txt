@@ -1,7 +1,0 @@
-Flask>=3.0,<4.0
-waitress>=3.0,<4.0
-openpyxl>=3.1,<4.0
-# Só é usado quando DATABASE_URL aponta para PostgreSQL (produção/Render + Neon).
-# Sem DATABASE_URL definida, o sistema continua usando SQLite e esta biblioteca
-# fica instalada mas sem uso — não atrapalha o funcionamento local.
-psycopg2-binary>=2.9,<3.0
