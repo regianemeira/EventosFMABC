@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Central de Conhecimento{% endblock %}
+{% block content %}
+<div class="manual-page">
+  <section class="manual-hero">
+    <div class="manual-hero-copy">
+      <div class="eyebrow">CENTRAL DE CONHECIMENTO</div>
+      <h1>Manual de Eventos FMABC</h1>
+      <p>Consulte o Manual de Cerimonial e Eventos do Centro Universitário FMABC, edição de {{ manual_year }}. Faça uma pergunta para localizar os trechos relevantes ou leia o documento completo.</p>
+      <div class="manual-meta-row"><span class="manual-meta"><span>▤</span> {{ manual_pages }} páginas</span><span class="manual-meta"><span>▧</span> Documento institucional</span><span class="manual-meta"><span>⌕</span> Busca restrita ao manual</span></div>
+    </div>
+    <div class="manual-hero-mark"><div class="manual-book-icon">▤</div><strong>ORIENTAÇÃO INSTITUCIONAL</strong><span>Consulta com indicação da página de origem</span></div>
+  </section>
+
+  <section class="manual-chat-panel panel">
+    <div class="panel-heading manual-chat-heading"><div><h2>Faça uma pergunta ao manual</h2><p>O sistema procura passagens no documento e informa as páginas para conferência.</p></div><span class="manual-online-dot"><i></i> Base local</span></div>
+    <form class="manual-search-form" action="{{ url_for('manual_center') }}" method="get">
+      <label for="manual-question">Sua pergunta</label>
+      <div class="manual-search-control"><textarea id="manual-question" name="q" rows="2" maxlength="350" placeholder="Ex.: Com quantos dias de antecedência devo solicitar suporte de TI?" required>{{ question }}</textarea><button class="btn btn-primary" type="submit">Consultar manual <span>→</span></button></div>
+      <small>As respostas são compostas por trechos recuperados do PDF original. Se o manual não trouxer orientação suficiente, o sistema informará isso.</small>
+    </form>
+    <div class="manual-suggestions"><span>Perguntas sugeridas:</span><a href="{{ url_for('manual_center', q='Qual a antecedência para solicitar suporte de TI?') }}">Prazo para suporte de TI</a><a href="{{ url_for('manual_center', q='Quais são as etapas de organização de um evento?') }}">Etapas do evento</a><a href="{{ url_for('manual_center', q='Qual a capacidade dos espaços da FMABC?') }}">Capacidade dos espaços</a><a href="{{ url_for('manual_center', q='Como deve ser organizado o cerimonial de colação de grau?') }}">Colação de grau</a></div>
+  </section>
+
+  {% if question %}
+  <section class="manual-answer-section" aria-live="polite">
+    <div class="manual-answer-intro"><div class="manual-answer-avatar">FM</div><div><span class="manual-answer-label">CONSULTA AO MANUAL</span><h2>{{ answer_message }}</h2></div></div>
+    {% if manual_results %}
+      <div class="manual-results-list">
+      {% for result in manual_results %}
+        <article class="manual-result-card">
+          <div class="manual-result-top"><span class="manual-result-source">Trecho localizado no documento</span><span class="manual-page-badge">Página {{ result.page }} do PDF</span></div>
+          <div class="manual-result-section">{{ result.section }}</div>
+          <blockquote>{{ result.text }}</blockquote>
+          <div class="manual-result-footer"><span>{{ result.source }}</span><a href="{{ manual_pdf_url }}{{ result.pdf_anchor }}" target="_blank" rel="noopener">Abrir nesta página <span>↗</span></a></div>
+        </article>
+      {% endfor %}
+      </div>
+      <p class="manual-grounding-note">Para manter a consulta fiel ao documento, esta versão apresenta trechos recuperados do manual, sem acrescentar regras externas. Leia o contexto na página original antes de tomar decisões quando houver ambiguidades.</p>
+    {% else %}
+      <div class="manual-no-answer"><strong>Orientação não localizada</strong><p>O sistema não encontrou correspondência suficiente entre a pergunta e o texto indexado do manual. Isso não comprova que o assunto esteja ausente do PDF. Use palavras diferentes ou consulte o documento integral.</p><a class="btn btn-secondary" href="#manual-completo">Consultar o documento completo</a></div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="manual-full-section" id="manual-completo">
+    <div class="manual-full-heading"><div><div class="eyebrow">DOCUMENTO ORIGINAL</div><h2>Manual na íntegra</h2><p>Visualize as 67 páginas do arquivo enviado, sem substituir o conteúdo original.</p></div><div class="manual-full-actions"><a class="btn btn-secondary" href="{{ manual_pdf_url }}" target="_blank" rel="noopener">Abrir em nova aba <span>↗</span></a><a class="btn btn-primary" href="{{ manual_pdf_url }}" download="Manual_de_Cerimonial_e_Eventos_FMABC_2023.pdf">Baixar PDF <span>↓</span></a></div></div>
+    <details class="manual-viewer panel">
+      <summary><span><strong>Visualizar o manual completo nesta página</strong><small>O leitor de PDF abrirá abaixo.</small></span><span class="manual-summary-icon">＋</span></summary>
+      <div class="manual-pdf-wrap"><iframe title="Manual de Cerimonial e Eventos do Centro Universitário FMABC, 2023" src="{{ manual_pdf_url }}#toolbar=1&navpanes=1&view=FitH" loading="lazy"></iframe></div>
+    </details>
+    <div class="manual-version-note"><span>i</span><p>Fonte da consulta: <strong>{{ manual_title }}</strong>, {{ manual_year }}. A ferramenta utiliza somente o texto indexado desse arquivo. Atualizações posteriores do manual deverão ser revisadas e indexadas novamente por uma pessoa administradora.</p></div>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Editar — {{ event.title }}{% endblock %}
+{% block content %}
+<div class="detail-back"><a class="back-link" href="{{ url_for('event_detail', event_id=event.id) }}">← Voltar ao evento</a><span class="detail-protocol">{{ event.protocol }}</span></div>
+<div class="page-heading"><div class="eyebrow">USO INTERNO · SETOR DE EVENTOS</div><h1>Editar dados do evento</h1><p>As alterações ficam registradas no histórico abaixo. O status, a triagem e o checklist continuam sendo alterados na página do evento.</p></div>
+
+{% if conflicts %}
+<section class="panel event-conflict-warning">
+  <div class="panel-heading"><div><h2>Possível conflito de agenda</h2><p>Estes eventos usam o mesmo local na data e no horário escolhidos.</p></div></div>
+  {% for c in conflicts %}
+  <div class="event-conflict-row"><span>{{ c.date[8:10] }}/{{ c.date[5:7] }}/{{ c.date[:4] }} · {{ c.venue }} · {% if c.kind == 'conflito' %}horário sobreposto{% elif c.kind == 'bloqueio' %}espaço bloqueado: {{ c.reason }}{% else %}horário do outro evento incompleto{% endif %}{% if c.other %} · {{ c.other.title }} ({{ c.other.start_time or 'sem horário' }}{% if c.other.end_time %} – {{ c.other.end_time }}{% endif %}){% endif %}</span>{% if c.other %}<a href="{{ url_for('event_detail', event_id=c.other.id) }}" target="_blank" rel="noopener">Ver outro evento →</a>{% endif %}</div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<form method="post" class="panel event-edit-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="panel-heading"><div><h2>Data, horário e local</h2><p>Para eventos de vários dias, informe a data de término; o horário vale para cada dia.</p></div></div>
+  <div class="form-grid">
+    <div class="field span-2"><label for="title">Nome do evento *</label><input id="title" name="title" required maxlength="180" value="{{ form.title }}"></div>
+    <div class="field"><label for="start_date">Data de início *</label><input id="start_date" name="start_date" type="date" required value="{{ form.start_date }}"></div>
+    <div class="field"><label for="end_date">Data de término</label><input id="end_date" name="end_date" type="date" value="{{ form.end_date }}"><small class="form-hint">Igual à data de início para eventos de um dia.</small></div>
+    <div class="field"><label for="start_time">Horário de início *</label><select id="start_time" name="start_time" required><option value="">Selecione</option>{% for value, label in time_options %}<option value="{{ value }}" {% if form.start_time == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="end_time">Horário de término *</label><select id="end_time" name="end_time" required><option value="">Selecione</option>{% for value, label in time_options %}<option value="{{ value }}" {% if form.end_time == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    {% if form.original_time %}<div class="field span-2"><small class="form-hint">Horário registrado antes desta edição: <strong>{{ form.original_time }}</strong>. Confira se os campos acima correspondem.</small></div>{% endif %}
+    <div class="field span-2"><label>Local *</label><div class="support-grid">{% for item in venue_options %}<label class="check-option"><input type="checkbox" name="venues" value="{{ item }}" {% if item in form.venues %}checked{% endif %}><span class="custom-check"></span><span>{{ item }}</span></label>{% endfor %}</div></div>
+    <div class="field span-2"><label for="venue_other">Outro local (se marcou “Outro”)</label><input id="venue_other" name="venue_other" maxlength="240" value="{{ form.venue_other }}"></div>
+    <div class="field span-2"><label>Tipo do evento *</label><div class="support-grid">{% for item in formats %}<label class="check-option"><input type="checkbox" name="event_modes" value="{{ item }}" {% if item in form.event_modes %}checked{% endif %}><span class="custom-check"></span><span>{{ item }}</span></label>{% endfor %}</div></div>
+  </div>
+
+  <div class="panel-heading"><div><h2>Dados do evento e do solicitante</h2></div></div>
+  <div class="form-grid">
+    <div class="field"><label for="event_category">Categoria *</label><select id="event_category" name="event_category" required>{% for item in event_types %}<option value="{{ item }}" {% if form.event_category == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="event_category_other">Outra categoria (se “Outro”)</label><input id="event_category_other" name="event_category_other" maxlength="180" value="{{ form.event_category_other }}"></div>
+    <div class="field"><label for="department">Setor organizador *</label><input id="department" name="department" required maxlength="180" value="{{ form.department }}"></div>
+    <div class="field"><label for="organizer_name">Responsável *</label><input id="organizer_name" name="organizer_name" required maxlength="180" value="{{ form.organizer_name }}"></div>
+    <div class="field"><label for="organizer_email">E-mail do solicitante</label><input id="organizer_email" name="organizer_email" type="email" maxlength="180" value="{{ form.organizer_email }}"><small class="form-hint">Usado na consulta de protocolo e no convite de avaliação.</small></div>
+    <div class="field"><label for="contact_email">E-mail de contato</label><input id="contact_email" name="contact_email" type="email" maxlength="180" value="{{ form.contact_email }}"></div>
+    <div class="field"><label for="organizer_phone">Telefone / WhatsApp</label><input id="organizer_phone" name="organizer_phone" maxlength="80" value="{{ form.organizer_phone }}"></div>
+    <div class="field"><label for="expected_attendees">Público previsto</label><input id="expected_attendees" name="expected_attendees" type="number" min="0" max="100000" value="{{ form.expected_attendees }}"></div>
+    <div class="field span-2"><label for="audience">Público-alvo</label><input id="audience" name="audience" maxlength="300" value="{{ form.audience }}"></div>
+    <div class="field span-2"><label for="description">Objetivo do evento *</label><textarea id="description" name="description" rows="4" maxlength="5000" required>{{ form.description }}</textarea></div>
+    <div class="field"><label for="authorized_by">Autorizado por</label><select id="authorized_by" name="authorized_by"><option value="">Não informado</option>{% for item in authorization_options %}<option value="{{ item }}" {% if form.authorized_by == item %}selected{% endif %}>{{ item }}</option>{% endfor %}{% if form.authorized_by and form.authorized_by not in authorization_options %}<option value="{{ form.authorized_by }}" selected>{{ form.authorized_by }}</option>{% endif %}</select></div>
+    <div class="field"><label for="cost_center">Centro de custo</label><input id="cost_center" name="cost_center" maxlength="120" value="{{ form.cost_center }}"></div>
+    <div class="field span-2"><label for="additional_info">Informações adicionais</label><textarea id="additional_info" name="additional_info" rows="3" maxlength="5000">{{ form.additional_info }}</textarea></div>
+  </div>
+
+  <div class="event-edit-actions">
+    <label class="checkbox-inline"><input type="checkbox" name="shift_tasks" value="yes" checked> Se a data de início mudar, deslocar os prazos das tarefas pendentes do checklist</label>
+    {% if conflicts %}<label class="checkbox-inline"><input type="checkbox" name="confirm_conflict" value="yes"> Conferi o conflito e quero salvar mesmo assim</label>{% endif %}
+  </div>
+  <div class="event-edit-actions"><button class="btn btn-primary" type="submit">Salvar alterações</button><a class="text-link" href="{{ url_for('event_detail', event_id=event.id) }}">Cancelar</a></div>
+</form>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Histórico de alterações</h2><p>Últimas 30 edições dos dados do evento.</p></div></div>
+  {% if history %}<ul class="change-log-list">{% for h in history %}<li><small>{{ h.changed_at }} · {{ h.changed_by or 'sistema' }}</small><span class="preserve-lines">{{ h.summary }}</span></li>{% endfor %}</ul>
+  {% else %}<p class="muted">Nenhuma alteração registrada ainda.</p>{% endif %}
+</section>
+{% endblock %}

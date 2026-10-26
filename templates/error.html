@@ -1,0 +1,3 @@
+{% extends 'base.html' %}
+{% block title %}Erro {{ code }}{% endblock %}
+{% block content %}<section class="error-wrap"><div class="eyebrow">FMABC EVENTOS</div><h1>{{ code }}</h1><h2>Não foi possível concluir esta ação.</h2><p>{{ message }}</p><a class="btn btn-primary" href="{{ url_for('dashboard') if session.get('user_id') else url_for('request_event') }}">Voltar ao início <span>→</span></a></section>{% endblock %}

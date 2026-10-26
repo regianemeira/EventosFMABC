@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Equipe e acessos{% endblock %}
+{% block content %}
+{% with section='configuracoes' %}{% include '_section_tabs.html' %}{% endwith %}
+<div class="page-heading"><p>Edite contas, redefina senhas e controle quem pode acessar o sistema.</p></div>
+<div class="team-layout team-admin-layout">
+  <section class="panel team-form-panel">
+    <div class="panel-heading"><div><h2>Novo acesso</h2><p>Cada integrante deve utilizar sua própria conta.</p></div></div>
+    <form class="stack-form team-form" method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="create">
+      <label for="new-email">E-mail institucional</label><input id="new-email" type="email" name="email" placeholder="nome@fmabc.br" required autocomplete="off">
+      <label for="new-password">Senha inicial</label><input id="new-password" type="password" name="password" minlength="6" autocomplete="new-password" placeholder="Mínimo de 6 caracteres" required>
+      <label for="new-role">Perfil de acesso</label><select id="new-role" name="role"><option value="staff">Equipe — triagem e eventos</option><option value="admin">Administrador — inclui gestão de acessos</option></select>
+      <button class="btn btn-primary btn-wide" type="submit">Criar acesso <span>→</span></button>
+      <p class="form-hint">Contas de equipe abrem diretamente a tela Triagem e acompanhamento no primeiro login. Compartilhe a senha inicial por um canal seguro.</p>
+    </form>
+  </section>
+  <section class="panel team-list-panel">
+    <div class="panel-heading"><div><h2>Acessos cadastrados</h2><p>{{ users|length }} usuário(s) cadastrados · {{ active_admins }} administrador(es) ativo(s).</p></div><span class="count-label">USUÁRIOS</span></div>
+    <div class="table-wrap"><table class="data-table team-admin-table"><thead><tr><th>Conta</th><th>Perfil</th><th>Cadastro</th><th>Ações</th></tr></thead><tbody>
+      {% for user in users %}
+      {% set self_user = user.id == session.get('user_id') %}
+      {% set last_active_admin = user.role == 'admin' and user.is_active and active_admins <= 1 %}
+      <tr>
+        <td><span class="table-main">{{ user.email }}</span><span class="team-status-label {% if user.is_active %}team-status-active{% else %}team-status-blocked{% endif %}">{{ 'Ativo' if user.is_active else 'Bloqueado' }}{% if self_user %} · Você{% endif %}</span></td>
+        <td><span class="status-pill {% if user.role == 'admin' %}status-green{% else %}status-blue{% endif %}">{{ 'Administrador' if user.role == 'admin' else 'Equipe' }}</span></td>
+        <td class="date-cell">{{ user.created_at[:10] }}</td>
+        <td class="team-actions-cell">
+          <div class="team-actions">
+            <details class="team-action-details"><summary class="btn btn-secondary btn-small">Editar dados</summary>
+              <div class="team-action-popover"><form method="post" class="stack-form team-mini-form">
+                <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="update"><input type="hidden" name="user_id" value="{{ user.id }}">
+                <label for="edit-email-{{ user.id }}">E-mail institucional</label><input id="edit-email-{{ user.id }}" type="email" name="email" value="{{ user.email }}" required>
+                <label for="edit-role-{{ user.id }}">Perfil</label><select id="edit-role-{{ user.id }}" name="role"><option value="staff" {% if user.role == 'staff' %}selected{% endif %}>Equipe — triagem e eventos</option><option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Administrador</option></select>
+                <button class="btn btn-primary btn-wide" type="submit">Salvar cadastro</button>
+              </form></div>
+            </details>
+            <details class="team-action-details"><summary class="btn btn-secondary btn-small">Senha</summary>
+              <div class="team-action-popover"><form method="post" class="stack-form team-mini-form">
+                <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="change_password"><input type="hidden" name="user_id" value="{{ user.id }}">
+                <label for="pw-{{ user.id }}">Nova senha</label><input id="pw-{{ user.id }}" type="password" name="new_password" minlength="6" autocomplete="new-password" placeholder="Mínimo de 6 caracteres" required>
+                <label for="pw-confirm-{{ user.id }}">Confirmar senha</label><input id="pw-confirm-{{ user.id }}" type="password" name="confirm_password" minlength="6" autocomplete="new-password" required>
+                <button class="btn btn-primary btn-wide" type="submit">Redefinir senha</button><p class="form-hint">A senha não é exibida; será substituída pela nova.</p>
+              </form></div>
+            </details>
+            <form method="post" class="inline-action-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="toggle_active"><input type="hidden" name="user_id" value="{{ user.id }}">
+              <button class="btn btn-secondary btn-small" type="submit" {% if self_user or last_active_admin %}disabled title="Esta ação não pode ser aplicada a esta conta."{% endif %}>{{ 'Desbloquear' if not user.is_active else 'Bloquear' }}</button>
+            </form>
+            <form method="post" class="inline-action-form" onsubmit="return confirm('Tem certeza de que deseja excluir esta conta? Esta ação não pode ser desfeita.');"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ user.id }}">
+              <button class="btn btn-danger btn-small" type="submit" {% if self_user or last_active_admin %}disabled title="Esta ação não pode ser aplicada a esta conta."{% endif %}>Excluir</button>
+            </form>
+          </div>
+          {% if self_user %}<small class="team-action-note">Sua própria conta não pode ser bloqueada ou excluída por aqui.</small>{% elif last_active_admin %}<small class="team-action-note">O último administrador ativo não pode ser bloqueado, excluído ou rebaixado.</small>{% endif %}
+        </td>
+      </tr>
+      {% else %}<tr><td colspan="4"><div class="empty-state"><h3>Nenhum acesso cadastrado</h3></div></td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="team-security-note"><strong>Proteção de acesso</strong><span>Contas bloqueadas perdem acesso na próxima requisição. O sistema impede bloquear ou excluir a própria conta e protege o último administrador ativo.</span></div>
+  </section>
+</div>
+{% endblock %}

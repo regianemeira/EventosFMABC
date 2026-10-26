@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% block title %}Solicitar evento{% endblock %}
+{% block content %}
+{% if submitted %}
+<section class="success-wrap"><div class="success-icon">✓</div><div class="eyebrow">SOLICITAÇÃO REGISTRADA</div><h1>Recebemos sua solicitação.</h1><p>O pedido foi salvo no sistema do Setor de Eventos da FMABC. Guarde o protocolo para acompanhar o andamento.</p><div class="protocol-box"><span>SEU PROTOCOLO</span><strong>{{ protocol }}</strong><button class="copy-protocol" type="button" onclick="navigator.clipboard && navigator.clipboard.writeText('{{ protocol }}').then(()=>this.innerText='Copiado')">Copiar protocolo</button></div><div class="success-actions"><a class="btn btn-primary" href="{{ url_for('track_request') }}">Acompanhar solicitação <span>→</span></a><a class="btn btn-secondary" href="{{ url_for('request_event') }}">Registrar outro evento</a></div><p class="fine-print">O protocolo e o e-mail informado serão necessários para consultar o status.</p></section>
+{% else %}
+<section class="form-hero"><div class="eyebrow light-eyebrow">CENTRO UNIVERSITÁRIO FMABC · SETOR DE EVENTOS</div><h1>Formulário para Eventos</h1><p>Descreva as características do seu evento para que o Setor de Eventos possa planejar e organizar as próximas etapas.</p><div class="form-hero-meta"><span><strong>01</strong> Informe os dados</span><span><strong>02</strong> A equipe fará a triagem</span><span><strong>03</strong> Acompanhe pelo protocolo</span></div></section>
+<form class="request-form" method="post"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <section class="form-section event-identification-section"><div class="section-heading"><span class="section-number">01</span><div><h2>Dados principais do evento</h2><p>Informe a reserva e os dados de contato do solicitante.</p></div></div><div class="form-grid event-identification-grid">
+    <div class="field event-title-field"><label for="title">Nome do evento <em>*</em></label><input id="title" name="title" required maxlength="180" value="{{ form.get('title','') if form else '' }}" placeholder="Nome completo do evento"></div>
+    <div class="field event-date-field"><label for="start_date">Data do evento <em>*</em></label><div class="date-range-controls"><input id="start_date" name="start_date" type="date" required value="{{ form.get('start_date','') if form else '' }}" aria-label="Data de início"><span class="time-range-separator" aria-hidden="true">até</span><input id="end_date" name="end_date" type="date" value="{{ form.get('end_date','') if form else '' }}" aria-label="Data de término (opcional)"></div><small class="form-hint">Preencha o término só se o evento durar mais de um dia.</small></div>
+    <div class="field time-range-field event-time-field">
+      <div class="time-range-heading">
+        <label>Horário do evento <em>*</em></label>
+        <p class="form-hint">Início e término em intervalos de 30 minutos.</p>
+      </div>
+      <div class="time-range-controls">
+        <div class="time-control"><label for="start_time">Início</label><select id="start_time" name="start_time" required><option value="">Início</option>{% for value, label in time_options %}<option value="{{ value }}" {% if form and form.get('start_time') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div class="time-range-separator" aria-hidden="true">até</div>
+        <div class="time-control"><label for="end_time">Término</label><select id="end_time" name="end_time" required><option value="">Término</option>{% for value, label in time_options %}<option value="{{ value }}" {% if form and form.get('end_time') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      </div>
+    </div>
+    <div class="field event-organizer-name-field"><label for="organizer_name">Nome da pessoa responsável <em>*</em></label><input id="organizer_name" name="organizer_name" required maxlength="180" value="{{ form.get('organizer_name','') if form else '' }}" placeholder="Nome completo"></div>
+    <div class="field event-organizer-email-field"><label for="organizer_email">E-mail do solicitante <em>*</em></label><input id="organizer_email" name="organizer_email" type="email" required maxlength="180" value="{{ form.get('organizer_email','') if form else '' }}" placeholder="nome@fmabc.br"></div>
+    <div class="field event-department-field"><label for="department">Setor organizador <em>*</em></label><input id="department" name="department" required maxlength="180" value="{{ form.get('department','') if form else '' }}" placeholder="Setor, departamento ou curso"></div>
+  </div></section>
+
+  <section class="form-section"><div class="section-heading"><span class="section-number">02</span><div><h2>Categoria, formato, serviços e local</h2><p>Categoria adicional para personalizar o checklist; perguntas 7 a 9 do formulário original abaixo.</p></div></div>
+    <div class="field span-2"><label for="event_category">Categoria do evento (pergunta adicional para gerar o checklist) <em>*</em></label><select id="event_category" name="event_category" required><option value="">Selecione a categoria do evento</option>{% for item in event_types %}<option value="{{ item }}" {% if form and form.get('event_category') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select><div class="field other-detail" id="event-category-other-wrap"><label for="event_category_other">Se marcou “Outro”, especifique a categoria</label><input id="event_category_other" name="event_category_other" maxlength="180" value="{{ form.get('event_category_other','') if form else '' }}" placeholder="Descreva a categoria"></div><p class="form-hint">Esta pergunta adicional ajuda o sistema a montar tarefas adequadas para cada evento. Ela não substitui o formato presencial, on-line ou híbrido.</p></div>
+    <div class="field"><label>7. Qual o tipo do evento? <em>*</em></label><div class="support-grid">{% for item in formats %}<label class="check-option"><input type="checkbox" name="event_modes" value="{{ item }}" {% if form and item in form.getlist('event_modes') %}checked{% endif %}><span class="custom-check"></span><span>{{ item }}</span></label>{% endfor %}</div></div>
+    <div class="field extra-fields"><label>8. Quais serviços de apoio serão necessários? <em>*</em></label><div class="support-grid">{% for item in support_options %}<label class="check-option"><input type="checkbox" name="support" value="{{ item }}" {% if form and item in form.getlist('support') %}checked{% endif %}><span class="custom-check"></span><span>{{ item }}</span></label>{% endfor %}</div><div class="field other-detail"><label for="support_other">Se marcou “Outro”, especifique</label><input id="support_other" name="support_other" maxlength="240" value="{{ form.get('support_other','') if form else '' }}" placeholder="Descreva outro serviço de apoio"></div></div>
+    <div class="field extra-fields"><label>9. Qual local foi reservado para o evento? <em>*</em></label><div class="support-grid">{% for item in venue_options %}<label class="check-option"><input type="checkbox" name="venues" value="{{ item }}" {% if form and item in form.getlist('venues') %}checked{% endif %}><span class="custom-check"></span><span>{{ item }}</span></label>{% endfor %}</div><div class="field other-detail"><label for="venue_other">Se marcou “Outro”, especifique</label><input id="venue_other" name="venue_other" maxlength="240" value="{{ form.get('venue_other','') if form else '' }}" placeholder="Informe outro local"></div></div>
+    <div id="reservation-availability" class="reservation-availability" role="status" aria-live="polite" hidden></div>
+  </section>
+
+  <section class="form-section"><div class="section-heading"><span class="section-number">03</span><div><h2>Público, objetivo e recursos</h2><p>Perguntas 10 a 13 do formulário original.</p></div></div><div class="form-grid">
+    <div class="field span-2"><label for="audience">10. Qual o público-alvo do evento? <em>*</em></label><input id="audience" name="audience" required maxlength="300" value="{{ form.get('audience','') if form else '' }}" placeholder="Ex.: alunos, docentes, profissionais da saúde, comunidade externa"></div>
+    <div class="field span-2"><label for="expected_attendees">11. Qual o número de pessoas esperado? <em>*</em></label><input id="expected_attendees" name="expected_attendees" type="number" min="0" max="100000" step="1" required value="{{ form.get('expected_attendees','') if form else '' }}" placeholder="Número estimado de participantes"></div>
+    <div class="field span-2"><label for="description">12. Qual o objetivo do evento? <em>*</em></label><textarea id="description" name="description" required rows="4" maxlength="5000" placeholder="Descreva o objetivo do evento.">{{ form.get('description','') if form else '' }}</textarea></div>
+    <div class="field span-2"><label>13. Assinale os itens que julga necessários <em>*</em></label><div class="support-grid">{% for item in requested_item_options %}<label class="check-option"><input type="checkbox" name="requested_items" value="{{ item }}" {% if form and item in form.getlist('requested_items') %}checked{% endif %}><span class="custom-check"></span><span>{{ item }}</span></label>{% endfor %}</div><div class="field other-detail"><label for="items_other">Se marcou “Outro”, especifique</label><input id="items_other" name="items_other" maxlength="240" value="{{ form.get('items_other','') if form else '' }}" placeholder="Descreva outro item necessário"></div></div>
+  </div></section>
+
+  <section class="form-section"><div class="section-heading"><span class="section-number">04</span><div><h2>Contato e autorização</h2><p>Perguntas 14 a 17. As informações serão utilizadas para tratar a solicitação.</p></div></div><div class="form-grid">
+    <div class="field"><label for="organizer_phone">14. Contato da pessoa responsável — telefone/WhatsApp <em>*</em></label><input id="organizer_phone" name="organizer_phone" type="tel" required maxlength="80" value="{{ form.get('organizer_phone','') if form else '' }}" placeholder="(11) 99999-9999"></div>
+    <div class="field"><label for="contact_email">14. E-mail de contato da pessoa responsável <em>*</em></label><input id="contact_email" name="contact_email" type="email" required maxlength="180" value="{{ form.get('contact_email','') if form else '' }}" placeholder="E-mail para contato"></div>
+    <div class="field span-2"><label for="authorized_by">15. Autorizado por: <em>*</em></label><select id="authorized_by" name="authorized_by" required><option value="">Selecione a instância autorizadora</option>{% for item in authorization_options %}<option value="{{ item }}" {% if form and form.get('authorized_by') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+    <div class="field span-2"><label for="cost_center">16. Centro de custo <em>*</em></label><input id="cost_center" name="cost_center" required maxlength="120" value="{{ form.get('cost_center','') if form else '' }}" placeholder="Informe o centro de custo"></div>
+    <div class="field span-2"><label for="additional_info">17. Informações Adicionais</label><textarea id="additional_info" name="additional_info" rows="4" maxlength="5000" placeholder="Inclua outras informações relevantes, se houver.">{{ form.get('additional_info','') if form else '' }}</textarea></div>
+  </div></section>
+  {% if form and form.get('_errors') %}<div class="inline-alert">{{ form.get('_errors') }}</div>{% endif %}
+  <div class="form-submit-row"><p><em>*</em> Campos obrigatórios. O envio não representa aprovação automática do evento.</p><button class="btn btn-primary btn-large" type="submit">Enviar solicitação <span>→</span></button></div>
+</form>
+<script>
+  const requestForm = document.querySelector('.request-form');
+  const categorySelect = document.querySelector('#event_category');
+  const categoryOtherWrap = document.querySelector('#event-category-other-wrap');
+  const categoryOtherInput = document.querySelector('#event_category_other');
+  const availabilityBox = document.querySelector('#reservation-availability');
+  const submitButton = requestForm?.querySelector('button[type="submit"]');
+  let allowSubmitAfterCheck = false;
+  let checkSequence = 0;
+  let availabilityTimer = null;
+
+  function showAvailability(state, message) {
+    if (!availabilityBox) return;
+    availabilityBox.hidden = false;
+    availabilityBox.className = `reservation-availability is-${state}`;
+    availabilityBox.textContent = message;
+  }
+
+  function hideAvailability() {
+    if (!availabilityBox) return;
+    availabilityBox.hidden = true;
+    availabilityBox.textContent = '';
+    availabilityBox.className = 'reservation-availability';
+  }
+
+  function updateCategoryOther() {
+    const show = categorySelect?.value === 'Outro';
+    if (categoryOtherWrap) categoryOtherWrap.style.display = show ? 'block' : 'none';
+    if (categoryOtherInput) categoryOtherInput.required = show;
+  }
+
+  function validateSelectionGroups() {
+    const groups = [
+      ['event_modes', 'Selecione pelo menos uma opção para o tipo do evento.'],
+      ['support', 'Selecione pelo menos um serviço de apoio.'],
+      ['venues', 'Selecione pelo menos um local.'],
+      ['requested_items', 'Selecione pelo menos um item necessário.']
+    ];
+    for (const [name, message] of groups) {
+      if (!requestForm.querySelector(`input[name="${name}"]:checked`)) {
+        alert(message);
+        requestForm.querySelector(`input[name="${name}"]`)?.focus();
+        return false;
+      }
+    }
+    const otherChecks = [
+      ['support', 'support_other', 'Especifique o outro serviço de apoio selecionado.'],
+      ['venues', 'venue_other', 'Informe o local selecionando “Outro”.'],
+      ['requested_items', 'items_other', 'Especifique o outro item selecionado.']
+    ];
+    for (const [group, inputName, message] of otherChecks) {
+      const selectedOther = Array.from(requestForm.querySelectorAll(`input[name="${group}"]:checked`)).some(input => input.value === 'Outro');
+      const extra = requestForm.querySelector(`[name="${inputName}"]`);
+      if (selectedOther && !extra?.value.trim()) {
+        alert(message);
+        extra?.focus();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function availabilityParams() {
+    const params = new URLSearchParams();
+    params.set('start_date', requestForm.querySelector('#start_date')?.value || '');
+    params.set('start_time', requestForm.querySelector('#start_time')?.value || '');
+    params.set('end_time', requestForm.querySelector('#end_time')?.value || '');
+    params.set('end_date', requestForm.querySelector('#end_date')?.value || '');
+    params.set('expected_attendees', requestForm.querySelector('#expected_attendees')?.value || '');
+    requestForm.querySelectorAll('input[name="venues"]:checked').forEach(input => params.append('venues', input.value));
+    params.set('venue_other', requestForm.querySelector('#venue_other')?.value || '');
+    return params;
+  }
+
+  async function checkAvailability(force = false) {
+    const dateValue = requestForm?.querySelector('#start_date')?.value || '';
+    const timeValue = requestForm?.querySelector('#start_time')?.value || '';
+    const endTimeValue = requestForm?.querySelector('#end_time')?.value || '';
+    const checkedVenues = requestForm ? requestForm.querySelectorAll('input[name="venues"]:checked') : [];
+    const otherSelected = Array.from(checkedVenues).some(input => input.value === 'Outro');
+    const otherName = requestForm?.querySelector('#venue_other')?.value.trim() || '';
+
+    if (!dateValue || !timeValue || !endTimeValue || !checkedVenues.length || (otherSelected && !otherName)) {
+      if (force) {
+        showAvailability('warning', 'Informe a data, o horário de início, o horário de término e o local para verificar se já existe uma reserva.');
+        return { ready: false, conflict: false };
+      }
+      hideAvailability();
+      if (submitButton) submitButton.disabled = false;
+      return { ready: false, conflict: false };
+    }
+
+    const sequence = ++checkSequence;
+    if (submitButton) submitButton.disabled = false;
+    showAvailability('checking', 'Verificando disponibilidade do espaço...');
+    try {
+      const response = await fetch(`{{ url_for('api_check_reservation_availability') }}?${availabilityParams().toString()}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('availability_check_failed');
+      const data = await response.json();
+      if (sequence !== checkSequence) return { ready: false, conflict: false, stale: true };
+
+      if (data.valid_time === false) {
+        showAvailability('error', data.message || 'Informe um horário válido para verificar a disponibilidade.');
+        if (submitButton) submitButton.disabled = true;
+        return { ready: true, validTime: false, conflict: false };
+      }
+      if (data.conflict) {
+        showAvailability('error', data.message || 'O espaço já está reservado nesta data e horário para outro evento. Escolha outra data, horário ou local.');
+        if (submitButton) submitButton.disabled = true;
+        return { ready: true, validTime: true, conflict: true };
+      }
+      if (data.ready) {
+        showAvailability(data.level === 'warning' ? 'warning' : 'success', data.message || 'Verificação de disponibilidade concluída.');
+        if (submitButton) submitButton.disabled = false;
+        return { ready: true, validTime: true, conflict: false };
+      }
+      showAvailability('info', data.message || 'Complete os dados para verificar o espaço.');
+      return { ready: false, validTime: true, conflict: false };
+    } catch (_error) {
+      if (sequence !== checkSequence) return { ready: false, conflict: false, stale: true };
+      showAvailability('warning', 'Não foi possível verificar a disponibilidade agora. O envio ficará condicionado à validação do sistema; tente novamente em instantes.');
+      if (submitButton) submitButton.disabled = false;
+      return { ready: false, conflict: false, serviceError: true };
+    }
+  }
+
+  function scheduleAvailabilityCheck() {
+    if (submitButton) submitButton.disabled = false;
+    if (availabilityTimer) clearTimeout(availabilityTimer);
+    availabilityTimer = setTimeout(() => checkAvailability(false), 250);
+  }
+
+  categorySelect?.addEventListener('change', updateCategoryOther);
+  updateCategoryOther();
+
+  ['#start_date', '#end_date', '#start_time', '#end_time', '#venue_other', '#expected_attendees'].forEach(selector => {
+    requestForm?.querySelector(selector)?.addEventListener('change', scheduleAvailabilityCheck);
+    requestForm?.querySelector(selector)?.addEventListener('input', scheduleAvailabilityCheck);
+  });
+  requestForm?.querySelectorAll('input[name="venues"]').forEach(input => input.addEventListener('change', scheduleAvailabilityCheck));
+  if (requestForm && (requestForm.querySelector('#start_date')?.value || '') && (requestForm.querySelector('#start_time')?.value || '') && (requestForm.querySelector('#end_time')?.value || '') && requestForm.querySelector('input[name="venues"]:checked')) {
+    checkAvailability(false);
+  }
+
+  requestForm?.addEventListener('submit', async function (event) {
+    if (allowSubmitAfterCheck) {
+      allowSubmitAfterCheck = false;
+      return;
+    }
+    event.preventDefault();
+
+    if (categorySelect?.value === 'Outro' && !categoryOtherInput?.value.trim()) {
+      alert('Especifique a categoria selecionando “Outro”.');
+      categoryOtherInput?.focus();
+      return;
+    }
+    if (!validateSelectionGroups()) return;
+
+    const selectedStart = requestForm.querySelector('#start_time')?.value || '';
+    const selectedEnd = requestForm.querySelector('#end_time')?.value || '';
+    const toMinutes = (value) => {
+      const match = String(value).match(/^(\d{2})h(\d{2})$/);
+      return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+    };
+    const startMinutes = toMinutes(selectedStart);
+    const endMinutes = toMinutes(selectedEnd);
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+      showAvailability('error', 'O horário de término precisa ser posterior ao horário de início.');
+      availabilityBox?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      requestForm.querySelector('#end_time')?.focus();
+      return;
+    }
+
+    const result = await checkAvailability(true);
+    if (!result.ready || result.validTime === false || result.conflict || result.serviceError) {
+      availabilityBox?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    if (submitButton) submitButton.disabled = true;
+    allowSubmitAfterCheck = true;
+    requestForm.requestSubmit();
+  });
+</script>
+{% endif %}
+{% endblock %}

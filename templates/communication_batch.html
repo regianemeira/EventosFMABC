@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Prévia do comunicado{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div class="eyebrow">COMUNICAÇÃO INSTITUCIONAL</div>
+  <h1>Revisar comunicado mensal</h1>
+  <p>Confira destinatário, assunto e texto antes de enviar. O registro conserva uma fotografia dos eventos incluídos nesta versão.</p>
+</div>
+<div class="communication-batch-summary">
+  <div><span>Área</span><strong>{{ batch.department_name }}</strong></div>
+  <div><span>Período</span><strong>{{ '%02d'|format(batch.period_month) }}/{{ batch.period_year }}</strong></div>
+  <div><span>Status</span><strong>{{ 'Enviado' if batch.status == 'enviado' else 'Rascunho' }}</strong></div>
+  <div><span>Criado por</span><strong>{{ batch.created_by or '—' }}</strong></div>
+</div>
+{% if batch.status == 'enviado' %}
+<div class="communication-note communication-note-ok"><div class="communication-note-icon">✓</div><div><strong>Envio registrado</strong><p>Data: {{ batch.sent_at or '—' }} · Responsável: {{ batch.sent_by or '—' }} · Método: {{ 'Envio automático SMTP' if batch.send_method == 'smtp' else 'Envio manual externo' }}</p></div></div>
+{% endif %}
+{% if batch.error_message %}<div class="communication-note"><div class="communication-note-icon">!</div><div><strong>Última tentativa de envio</strong><p>{{ batch.error_message }}. O rascunho foi preservado.</p></div></div>{% endif %}
+<section class="panel communication-preview-panel">
+  <div class="panel-heading"><div><h2>Conteúdo do e-mail</h2><p>As alterações abaixo só mudam este comunicado, não os dados da agenda.</p></div><a class="btn btn-quiet" href="{{ url_for('communication_center', year=batch.period_year, month=batch.period_month, department_id=batch.department_id) }}">← Voltar à agenda</a></div>
+  <form class="communication-editor" method="post" action="{{ url_for('update_communication_batch', batch_id=batch.id) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <label for="recipient_email">Para</label><input id="recipient_email" type="email" name="recipient_email" value="{{ batch.recipient_email or '' }}" placeholder="Cadastre o e-mail oficial da área" {% if batch.status != 'rascunho' %}disabled{% endif %}>
+    <label for="subject">Assunto</label><input id="subject" name="subject" value="{{ batch.subject }}" required maxlength="250" {% if batch.status != 'rascunho' %}disabled{% endif %}>
+    <label for="body">Mensagem</label><textarea id="body" name="body" rows="23" required {% if batch.status != 'rascunho' %}disabled{% endif %}>{{ batch.body }}</textarea>
+    {% if batch.status == 'rascunho' %}<button class="btn btn-secondary" type="submit">Salvar alterações</button>{% endif %}
+  </form>
+</section>
+<section class="panel communication-snapshot-panel">
+  <div class="panel-heading"><div><h2>Eventos incluídos nesta versão</h2><p>{{ items|length }} evento(s), preservados para consulta histórica.</p></div></div>
+  <div class="communication-event-list">{% for item in items %}<article class="communication-event-card"><div class="communication-event-meta"><span class="communication-event-date">{{ item.event_date[8:10] }}/{{ item.event_date[5:7] }}/{{ item.event_date[:4] }}</span><span class="status-pill {% if item.involvement == 'acao' %}status-amber{% else %}status-blue{% endif %}">{{ communication_roles.get(item.involvement, item.involvement) }}</span></div><h3>{{ item.event_title }}</h3><div class="communication-event-facts"><span><strong>Horário:</strong> {{ item.event_time or 'A confirmar' }}</span><span><strong>Local:</strong> {{ item.event_venue or 'A confirmar' }}</span></div>{% if item.details %}<p class="communication-internal-details"><strong>Providências:</strong> {{ item.details }}</p>{% endif %}</article>{% endfor %}</div>
+</section>
+{% if batch.status == 'rascunho' %}
+<section class="communication-send-actions">
+  <div class="communication-send-option"><div><h3>Enviar pelo sistema</h3><p>{% if smtp_configured %}A conexão SMTP está configurada; o destinatário também precisa estar preenchido.{% else %}Disponível depois de configurar o SMTP institucional com a TI da FMABC.{% endif %}</p></div><form method="post" action="{{ url_for('send_communication_batch', batch_id=batch.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-primary" type="submit">Enviar e registrar</button></form></div>
+  <div class="communication-send-option"><div><h3>Registrar envio feito por fora</h3><p>Use depois de enviar a mensagem pelo Outlook ou pelo e-mail institucional.</p></div><form method="post" action="{{ url_for('register_manual_communication_batch', batch_id=batch.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><label class="confirmation-check"><input type="checkbox" name="confirm_sent" value="yes" required> Confirmo que enviei o e-mail fora do sistema.</label><button class="btn btn-secondary" type="submit">Registrar como enviado</button></form></div>
+</section>
+{% endif %}
+{% endblock %}
