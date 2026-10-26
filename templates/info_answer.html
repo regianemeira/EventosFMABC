@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Responder ao Setor de Eventos{% endblock %}
+{% block content %}
+<section class="tracking-wrap info-answer-wrap">
+  <div class="eyebrow">PROTOCOLO {{ req.protocol }}</div>
+  <h1>{{ req.title }}</h1>
+  <p class="tracking-lead">Data prevista: {{ req.start_date[8:10] }}/{{ req.start_date[5:7] }}/{{ req.start_date[:4] }}{% if req.end_date and req.end_date != req.start_date %} a {{ req.end_date[8:10] }}/{{ req.end_date[5:7] }}/{{ req.end_date[:4] }}{% endif %}{% if req.venue %} · {{ req.venue }}{% endif %}</p>
+
+  {% if req.status == 'respondida' %}
+    <div class="tracking-result"><div class="status-explanation"><strong>Resposta recebida. Obrigado!</strong><p>Enviada em {{ req.answered_at[8:10] }}/{{ req.answered_at[5:7] }}/{{ req.answered_at[:4] }} por {{ req.answered_by }}. O Setor de Eventos vai continuar a análise e avisará sobre os próximos passos.</p><p class="preserve-lines muted">{{ req.answer }}</p></div></div>
+  {% elif req.status == 'cancelada' %}
+    <div class="inline-alert">Este pedido de informações foi substituído ou cancelado pelo Setor de Eventos. Consulte o andamento pelo protocolo ou verifique se recebeu um e-mail mais recente.</div>
+  {% else %}
+    <div class="info-request-box"><strong>O que o Setor de Eventos precisa</strong><p class="preserve-lines">{{ req.question }}</p></div>
+    <form method="post" enctype="multipart/form-data" class="tracking-form info-answer-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
+      <div class="field"><label for="answered_by">Seu nome</label><input id="answered_by" name="answered_by" required maxlength="120" value="{{ req.organizer_name or '' }}"></div>
+      <div class="field"><label for="answer">Sua resposta</label><textarea id="answer" name="answer" rows="6" required maxlength="5000" placeholder="Escreva as informações solicitadas."></textarea></div>
+      <div class="field"><label for="files">Arquivos (opcional)</label><input id="files" name="files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.odt,.ods,.txt,.png,.jpg,.jpeg,.gif,.webp,.zip"><small class="form-hint">Até 5 arquivos, somando no máximo 15 MB. PDF, Word, Excel, PowerPoint, imagens ou ZIP.</small></div>
+      <button class="btn btn-primary btn-wide" type="submit">Enviar resposta <span>→</span></button>
+    </form>
+  {% endif %}
+  <a class="back-link" href="{{ url_for('track_request') }}">← Acompanhar solicitação pelo protocolo</a>
+</section>
+{% endblock %}

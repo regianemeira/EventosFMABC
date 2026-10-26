@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Checklist consolidado{% endblock %}
+{% block content %}
+{% with section='checklists' %}{% include '_section_tabs.html' %}{% endwith %}
+<section class="consolidated-head">
+  <div>
+    <p>Acompanhe as tarefas de todos os eventos em uma única tela.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('events_list') }}">Ver eventos <span>→</span></a>
+</section>
+<section class="consolidated-stats" aria-label="Resumo das tarefas">
+  <article class="consolidated-stat"><span>Tarefas exibidas</span><strong>{{ counts.total }}</strong></article>
+  <article class="consolidated-stat"><span>Em aberto</span><strong>{{ counts.pendentes }}</strong></article>
+  <article class="consolidated-stat is-late"><span>Atrasadas</span><strong>{{ counts.atrasadas }}</strong></article>
+  <article class="consolidated-stat"><span>Concluídas</span><strong>{{ counts.concluidas }}</strong></article>
+</section>
+<form class="consolidated-filters" method="get" action="{{ url_for('consolidated_checklist') }}">
+  <div><label for="q">Pesquisar tarefa ou evento</label><input id="q" name="q" type="search" value="{{ search }}" placeholder="Digite para pesquisar"></div>
+  <div><label for="evento">Evento</label><select id="evento" name="evento"><option value="">Todos os eventos</option>{% for event in events %}<option value="{{ event.id }}" {% if selected_event == event.id %}selected{% endif %}>{{ event.title }}</option>{% endfor %}</select></div>
+  <div><label for="status">Status da tarefa</label><select id="status" name="status"><option value="">Todos os status</option>{% for key,label in task_statuses.items() %}<option value="{{ key }}" {% if selected_status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div><label for="responsavel">Responsável</label><select id="responsavel" name="responsavel"><option value="">Todas as pessoas</option>{% for person in people %}<option value="{{ person.assigned_to }}" {% if selected_responsible == person.assigned_to %}selected{% endif %}>{{ person.assigned_to }}</option>{% endfor %}</select></div>
+  <div><label for="prazo">Prazo</label><select id="prazo" name="prazo"><option value="" {% if not selected_period %}selected{% endif %}>Todos</option><option value="atrasadas" {% if selected_period == 'atrasadas' %}selected{% endif %}>Atrasadas</option><option value="7dias" {% if selected_period == '7dias' %}selected{% endif %}>Próximos 7 dias</option></select></div>
+  <button class="btn btn-primary" type="submit">Filtrar</button>
+</form>
+<section class="consolidated-table-panel">
+  <header class="consolidated-table-top"><div><h2>Tarefas dos eventos</h2><p>Selecione uma atividade para abrir o checklist completo do evento.</p></div><span class="consolidated-sub">{{ tasks|length }} registro(s)</span></header>
+  {% if tasks %}
+  <div class="table-wrap"><table class="consolidated-table"><thead><tr><th>Tarefa</th><th>Evento</th><th>Responsável</th><th>Prazo</th><th>Status</th><th></th></tr></thead><tbody>
+  {% for task in tasks %}
+  <tr>
+    <td><span class="consolidated-task-title">{{ task.title }}</span><span class="consolidated-sub">{{ task.category or 'Organização' }}</span></td>
+    <td><a class="consolidated-event-link" href="{{ url_for('event_detail', event_id=task.event_id) }}">{{ task.event_title }}</a><div class="consolidated-sub">{{ task.event_protocol }}</div></td>
+    <td>{{ task.assigned_to or 'Não atribuído' }}</td>
+    <td>{% if task.due_date %}{{ task.due_date[8:10] }}/{{ task.due_date[5:7] }}/{{ task.due_date[:4] }}{% else %}<span class="consolidated-sub">Sem prazo</span>{% endif %}</td>
+    <td>{% if task.overdue %}<span class="task-state late">Atrasada</span>{% elif task.status == 'concluida' %}<span class="task-state done">Concluída</span>{% elif task.status == 'em_andamento' %}<span class="task-state progress">Em andamento</span>{% elif task.status == 'aguardando_terceiro' %}<span class="task-state waiting">Aguardando terceiro</span>{% elif task.status == 'nao_se_aplica' %}<span class="task-state">Não se aplica</span>{% else %}<span class="task-state">Não iniciada</span>{% endif %}</td>
+    <td><a class="consolidated-row-link" href="{{ url_for('event_checklist', event_id=task.event_id) }}#tarefa-{{ task.id }}">Abrir tarefa <span>↗</span></a></td>
+  </tr>
+  {% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="consolidated-empty"><strong>Nenhuma tarefa encontrada</strong>Altere os filtros ou verifique se os eventos já possuem checklist.</div>{% endif %}
+</section>
+{% endblock %}

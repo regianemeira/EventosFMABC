@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Modelos de checklist{% endblock %}
+{% block content %}
+{% with section='checklists' %}{% include '_section_tabs.html' %}{% endwith %}
+{% set active_count = templates|selectattr('active')|list|length %}
+{% macro offset_text(n) -%}{% if n < 0 %}{{ n|abs }} dia{{ 's' if n != -1 }} antes{% elif n > 0 %}{{ n }} dia{{ 's' if n != 1 }} depois{% else %}No dia do evento{% endif %}{%- endmacro %}
+
+<div class="tpl-intro">
+  <p>Modelos geram as tarefas automaticamente quando uma solicitação é aprovada. <strong>{{ active_count }} ativos</strong> de {{ templates|length }}.</p>
+  <button type="button" class="btn btn-primary" id="tpl-new-button" aria-expanded="false" aria-controls="tpl-new">+ Novo modelo</button>
+</div>
+
+<section class="panel tpl-new" id="tpl-new" hidden>
+  <div class="panel-heading"><div><h2>Novo modelo de tarefa</h2><p>Defina em quais condições a tarefa aparece no checklist.</p></div></div>
+  <form method="post" class="tpl-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="create">
+    <label class="tpl-wide">Nome da tarefa<input name="title" required maxlength="240" placeholder="Ex.: Confirmar reserva do auditório"></label>
+    <label>Etapa<select name="category">{% for value in categories %}<option>{{ value }}</option>{% endfor %}</select></label>
+    <label>Prazo (dias em relação ao evento)<input name="due_offset" type="number" min="-365" max="365" value="-7" required><small>-30 = 30 dias antes · 0 = no dia · 2 = 2 dias depois</small></label>
+    <label>Quando gerar<select name="trigger_type" class="tpl-trigger">{% for value, label in trigger_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+    <label class="tpl-trigger-value">Valor que ativa<input name="trigger_value" list="trigger-value-options" placeholder="Ex.: Coffee break, TI, Híbrido"></label>
+    <label>Responsável padrão<input name="assigned_to" maxlength="180" placeholder="Opcional"></label>
+    <label class="tpl-wide">Orientação<textarea name="description" rows="2" maxlength="1500" placeholder="O que precisa ser confirmado ou realizado?"></textarea></label>
+    <div class="tpl-wide tpl-actions"><button class="btn btn-primary" type="submit">Criar modelo</button><button class="btn btn-secondary" type="button" id="tpl-new-cancel">Cancelar</button></div>
+  </form>
+</section>
+<datalist id="trigger-value-options">{% for option in trigger_values %}<option value="{{ option }}">{% endfor %}</datalist>
+
+<section class="tpl-toolbar" aria-label="Filtrar modelos">
+  <label class="ck-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><span class="sr-only">Buscar modelo</span><input type="search" id="tpl-search" placeholder="Buscar modelo ou etapa" autocomplete="off"></label>
+  <label class="tpl-filter"><span class="sr-only">Quando gerar</span><select id="tpl-trigger-filter"><option value="">Todas as condições</option>{% for value, label in trigger_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+  <label class="tpl-check"><input type="checkbox" id="tpl-show-inactive"> Mostrar inativos ({{ templates|length - active_count }})</label>
+</section>
+
+<p class="ck-no-results" id="tpl-no-results" hidden>Nenhum modelo encontrado.</p>
+{% for group in templates|groupby('category') %}
+<section class="tpl-group" data-tpl-group>
+  <h2 class="tpl-group-title">{{ group.grouper }} <span>{{ group.list|length }}</span></h2>
+  <div class="tpl-list">
+  {% for item in group.list %}
+    {% set fields = fields_by_template.get(item.id, []) %}
+    <details class="tpl-item {% if not item.active %}is-inactive{% endif %}" id="template-{{ item.id }}" data-active="{{ 1 if item.active else 0 }}" data-trigger="{{ item.trigger_type }}" data-search="{{ (item.title ~ ' ' ~ item.category ~ ' ' ~ (item.trigger_value or ''))|lower }}" {% if not item.active %}hidden{% endif %}>
+      <summary class="tpl-row">
+        <span class="tpl-title">{{ item.title }}</span>
+        <span class="tpl-when">{{ trigger_types.get(item.trigger_type, item.trigger_type) }}{% if item.trigger_value %}: <strong>{{ item.trigger_value }}</strong>{% endif %}</span>
+        <span class="tpl-offset">{{ offset_text(item.due_offset) }}</span>
+        <span class="tpl-fields">{% if fields %}{{ fields|length }} campo{{ 's' if fields|length != 1 }}{% endif %}</span>
+        <span class="status-pill {% if item.active %}status-green{% else %}status-gray{% endif %}">{{ 'Ativo' if item.active else 'Inativo' }}</span>
+        <span class="tpl-edit-label" aria-hidden="true">Editar</span>
+      </summary>
+      <div class="tpl-edit">
+        <form method="post" class="tpl-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="update"><input type="hidden" name="template_id" value="{{ item.id }}">
+          <label class="tpl-wide">Nome da tarefa<input name="title" value="{{ item.title }}" required maxlength="240"></label>
+          <label>Etapa<select name="category">{% for value in categories %}<option {% if item.category == value %}selected{% endif %}>{{ value }}</option>{% endfor %}{% if item.category not in categories %}<option selected>{{ item.category }}</option>{% endif %}</select></label>
+          <label>Prazo (dias em relação ao evento)<input name="due_offset" type="number" min="-365" max="365" value="{{ item.due_offset }}"></label>
+          <label>Quando gerar<select name="trigger_type">{% for value, label in trigger_types.items() %}<option value="{{ value }}" {% if item.trigger_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+          <label>Valor que ativa<input name="trigger_value" list="trigger-value-options" value="{{ item.trigger_value or '' }}" placeholder="Vazio se todos"></label>
+          <label>Responsável padrão<input name="assigned_to" value="{{ item.assigned_to or '' }}" maxlength="180"></label>
+          <label class="tpl-wide">Orientação<textarea name="description" rows="2" maxlength="1500">{{ item.description or '' }}</textarea></label>
+          <div class="tpl-wide tpl-actions"><button class="btn btn-primary" type="submit">Salvar modelo</button></div>
+        </form>
+        <form method="post" class="tpl-toggle"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="toggle"><input type="hidden" name="template_id" value="{{ item.id }}"><button class="btn btn-secondary btn-small" type="submit">{{ 'Inativar modelo' if item.active else 'Ativar modelo' }}</button></form>
+
+        <div class="tpl-fields-block">
+          <h3>Campos personalizados</h3>
+          <p class="form-hint">Aparecem no painel da tarefa, no checklist do evento. Campos obrigatórios precisam ser preenchidos para salvar a tarefa.</p>
+          {% for field in fields %}
+          <div class="template-field-row"><div><strong>{{ field.label }}</strong><small>{{ field_types.get(field.field_type, field.field_type) }}{% if field.required %} · obrigatório{% else %} · opcional{% endif %}{% if field.field_type == 'select' and field.options %} · opções: {{ field.options }}{% endif %}</small></div>
+            <form method="post" onsubmit="return confirm('Remover este campo do modelo? Os valores associados a ele também serão removidos.');"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="delete_field"><input type="hidden" name="template_id" value="{{ item.id }}"><input type="hidden" name="field_id" value="{{ field.id }}"><button class="btn btn-secondary btn-small" type="submit">Remover</button></form></div>
+          {% endfor %}
+          <details class="tpl-add-field"><summary>+ Adicionar campo</summary>
+            <form method="post" class="tpl-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="add_field"><input type="hidden" name="template_id" value="{{ item.id }}">
+              <label>Nome do campo<input name="field_label" required maxlength="160" placeholder="Ex.: Número do pedido de compra"></label>
+              <label>Tipo de resposta<select name="field_type" class="tpl-field-type">{% for value, label in field_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+              <label class="tpl-wide tpl-options" hidden>Opções da lista<textarea name="field_options" rows="2" placeholder="Separe por vírgula ou linha: Solicitado, Aprovado, Concluído"></textarea></label>
+              <label class="tpl-check tpl-wide"><input type="checkbox" name="required"> Campo obrigatório</label>
+              <div class="tpl-wide tpl-actions"><button class="btn btn-secondary" type="submit">Adicionar campo</button></div>
+            </form>
+          </details>
+        </div>
+      </div>
+    </details>
+  {% endfor %}
+  </div>
+</section>
+{% else %}<div class="empty-state">Nenhum modelo cadastrado.</div>{% endfor %}
+
+<script>
+(function () {
+  const newPanel = document.getElementById('tpl-new');
+  const newButton = document.getElementById('tpl-new-button');
+  function toggleNew(open) { newPanel.hidden = !open; newButton.setAttribute('aria-expanded', open ? 'true' : 'false'); if (open) newPanel.querySelector('input[name="title"]').focus(); }
+  newButton.addEventListener('click', () => toggleNew(newPanel.hidden));
+  document.getElementById('tpl-new-cancel').addEventListener('click', () => toggleNew(false));
+  const newTrigger = newPanel.querySelector('.tpl-trigger');
+  const newValue = newPanel.querySelector('.tpl-trigger-value');
+  function syncTrigger() { const all = newTrigger.value === 'always'; newValue.hidden = all; newValue.querySelector('input').required = !all; }
+  newTrigger.addEventListener('change', syncTrigger); syncTrigger();
+  document.querySelectorAll('.tpl-field-type').forEach(sel => sel.addEventListener('change', () => {
+    sel.closest('form').querySelector('.tpl-options').hidden = sel.value !== 'select';
+  }));
+
+  const search = document.getElementById('tpl-search');
+  const trig = document.getElementById('tpl-trigger-filter');
+  const inactive = document.getElementById('tpl-show-inactive');
+  function apply() {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    document.querySelectorAll('.tpl-item').forEach(item => {
+      const ok = (!q || item.dataset.search.includes(q)) && (!trig.value || item.dataset.trigger === trig.value)
+        && (inactive.checked || item.dataset.active === '1');
+      item.hidden = !ok; if (ok) shown++;
+    });
+    document.querySelectorAll('[data-tpl-group]').forEach(g => { g.hidden = !g.querySelector('.tpl-item:not([hidden])'); });
+    document.getElementById('tpl-no-results').hidden = shown > 0;
+  }
+  [search, trig, inactive].forEach(el => el.addEventListener(el === search ? 'input' : 'change', apply));
+  // Depois de salvar, o sistema volta para #template-ID: abre aquele modelo.
+  const target = location.hash && document.querySelector(location.hash);
+  if (target && target.classList.contains('tpl-item')) { if (target.dataset.active === '0') { inactive.checked = true; apply(); } target.open = true; target.scrollIntoView({block: 'center'}); }
+})();
+</script>
+{% endblock %}

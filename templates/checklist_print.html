@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checklist — {{ event.title }} | FMABC Eventos</title>
+  <style>
+    :root{--navy:#143550;--green:#28764f;--ink:#243341;--muted:#657482;--line:#dbe3e8;--soft:#f4f7f8}
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#eef2f4;font-size:12px}
+    .print-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1180px;margin:16px auto 10px;padding:12px 16px;background:#fff;border:1px solid var(--line);border-radius:10px}
+    .print-toolbar p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+    .print-toolbar strong{color:var(--navy)}
+    .print-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
+    .print-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;border:1px solid var(--green);border-radius:7px;background:var(--green);color:#fff;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer}
+    .print-button.secondary{background:#fff;color:var(--navy);border-color:var(--line)}
+    .print-sheet{width:1100px;min-height:650px;margin:12px auto 22px;padding:22px 25px;background:#fff;box-shadow:0 5px 24px #15324b14;border:1px solid #dfe6eb;display:flex;flex-direction:column;overflow:hidden}
+    .print-sheet-inner{display:flex;flex-direction:column;min-height:0;flex:1}
+    .print-brand-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding-bottom:9px;border-bottom:2px solid var(--green)}
+    .print-brand{display:flex;align-items:center;gap:8px;color:var(--navy);font-size:10px;font-weight:800;letter-spacing:.09em}
+    .print-brand-mark{display:grid;place-items:center;width:25px;height:25px;background:var(--green);color:#fff;border-radius:6px;font-family:Georgia,serif;font-size:18px}
+    .print-kicker{font-size:8px;letter-spacing:.13em;color:var(--green);font-weight:800;text-align:right}
+    .print-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:10px 0 7px}
+    .print-title-row h1{font-size:19px;line-height:1.15;margin:0;color:var(--navy);font-weight:800;overflow-wrap:anywhere}
+    .print-protocol{font-size:8px;font-weight:800;color:#536575;white-space:nowrap;border:1px solid var(--line);padding:5px 7px;border-radius:5px}
+    .print-event-meta{display:grid;grid-template-columns:1.1fr .7fr 1.7fr 1.1fr;gap:6px;margin-bottom:8px}
+    .print-event-meta>div{min-width:0;padding:5px 7px;border:1px solid var(--line);border-radius:5px;background:#fbfcfc}
+    .print-event-meta span{display:block;font-size:7px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:2px}
+    .print-event-meta strong{display:block;font-size:8.5px;line-height:1.2;color:#293e50;overflow-wrap:anywhere}
+    .print-progress-line{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:1px 0 7px;padding:0 1px;color:var(--muted);font-size:8px}
+    .print-progress-line strong{color:var(--green)}
+    .print-tasks-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 5px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+    .print-tasks-heading h2{font-size:9px;line-height:1.2;margin:0;color:var(--navy);text-transform:uppercase;letter-spacing:.08em}
+    .print-tasks-heading span{font-size:7px;color:var(--muted)}
+    .print-task-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:min-content;align-content:start;gap:4px 10px;flex:1}
+    .print-task{min-width:0;break-inside:avoid;page-break-inside:avoid;border:1px solid #dfe6e9;border-radius:5px;padding:5px 6px;background:#fff;display:grid;grid-template-columns:12px minmax(0,1fr);gap:5px;align-content:start}
+    .print-checkbox{display:inline-block;width:10px;height:10px;border:1px solid #788894;border-radius:2px;margin-top:1px}
+    .print-task-content{min-width:0}
+    .print-task-title{font-size:9px;line-height:1.2;font-weight:700;color:#25394a;overflow-wrap:anywhere;margin:0 0 3px}
+    .print-task-meta{font-size:7.3px;line-height:1.25;color:#586a77;overflow-wrap:anywhere}
+    .print-task-meta strong{color:#33495b;font-weight:700}
+    .print-task-note{margin-top:2px;font-size:7px;line-height:1.2;color:#657482;overflow-wrap:anywhere}
+    .print-empty{padding:20px;border:1px dashed var(--line);border-radius:7px;color:var(--muted);text-align:center}
+    .print-sheet-footer{display:flex;justify-content:space-between;gap:10px;margin-top:7px;padding-top:5px;border-top:1px solid var(--line);font-size:7px;color:#788691}
+    .print-sheet.dense .print-title-row h1{font-size:17px}
+    .print-sheet.dense .print-task-grid{gap:2.5px 7px}
+    .print-sheet.dense .print-task{padding:3.5px 4px;grid-template-columns:10px minmax(0,1fr);gap:4px}
+    .print-sheet.dense .print-checkbox{width:8px;height:8px}
+    .print-sheet.dense .print-task-title{font-size:8px;margin-bottom:2px}
+    .print-sheet.dense .print-task-meta{font-size:6.5px}
+    .print-sheet.dense .print-task-note{font-size:6.2px}
+    .print-sheet.ultra .print-sheet-inner{font-size:90%}
+    .print-sheet.ultra .print-title-row h1{font-size:15px}
+    .print-sheet.ultra .print-event-meta{gap:3px;margin-bottom:5px}
+    .print-sheet.ultra .print-event-meta>div{padding:3px 5px}
+    .print-sheet.ultra .print-task-grid{gap:1.5px 5px}
+    .print-sheet.ultra .print-task{padding:2px 3px;grid-template-columns:8px minmax(0,1fr);gap:3px;border-radius:3px}
+    .print-sheet.ultra .print-checkbox{width:7px;height:7px}
+    .print-sheet.ultra .print-task-title{font-size:7px;line-height:1.1;margin-bottom:1px}
+    .print-sheet.ultra .print-task-meta{font-size:5.8px;line-height:1.1}
+    .print-sheet.ultra .print-task-note{font-size:5.5px;line-height:1.05}
+    @page{size:A4 landscape;margin:7mm}
+    @media print{
+      html,body{background:#fff!important;color:#111!important;font-size:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .print-toolbar{display:none!important}
+      .print-sheet{position:relative;width:auto;height:190mm;min-height:0;margin:0;padding:0;border:0;box-shadow:none;overflow:hidden;break-after:page;page-break-after:always}
+      .print-sheet:last-of-type{break-after:auto;page-break-after:auto}
+      .print-sheet-inner{display:block;position:relative;height:100%;max-height:100%;overflow:hidden}
+      .print-brand-row{padding-bottom:2mm}
+      .print-brand-mark{width:7mm;height:7mm;font-size:15pt;border-radius:1.5mm}
+      .print-brand{font-size:8pt}
+      .print-title-row{margin:2mm 0 1.5mm}
+      .print-title-row h1{font-size:15pt;line-height:1.08}
+      .print-protocol{font-size:6.5pt;padding:1mm 1.5mm}
+      .print-event-meta{gap:1.5mm;margin-bottom:1.5mm}
+      .print-event-meta>div{padding:1mm 1.5mm;border-radius:1mm}
+      .print-event-meta span{font-size:5.5pt;margin-bottom:.4mm}
+      .print-event-meta strong{font-size:6.5pt;line-height:1.1}
+      .print-progress-line{font-size:6pt;margin:0 0 1.2mm}
+      .print-tasks-heading{margin-bottom:1mm;padding-bottom:.8mm}
+      .print-tasks-heading h2{font-size:6.5pt}
+      .print-tasks-heading span{font-size:5.5pt}
+      .print-task-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:min-content;align-content:start;gap:1mm 2.5mm;flex:none;min-height:0;max-height:calc(100% - 35mm);overflow:hidden}
+      .print-task{padding:1mm 1.2mm;border-radius:1mm;grid-template-columns:3mm minmax(0,1fr);gap:1mm}
+      .print-checkbox{width:2.6mm;height:2.6mm;margin-top:.3mm;border-radius:.4mm}
+      .print-task-title{font-size:7pt;line-height:1.1;margin-bottom:.5mm;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+      .print-task-meta{font-size:5.8pt;line-height:1.1;max-height:2.2em;overflow:hidden}
+      .print-task-note{display:none}
+      .print-sheet-footer{position:absolute;left:0;right:0;bottom:0;font-size:5.5pt;margin:0;padding-top:.8mm;flex-shrink:0;background:#fff}
+      .print-sheet.dense .print-title-row h1{font-size:13.5pt}
+      .print-sheet.dense .print-task-grid{gap:.7mm 2mm}
+      .print-sheet.dense .print-task{padding:.7mm .9mm;grid-template-columns:2.5mm minmax(0,1fr);gap:.8mm}
+      .print-sheet.dense .print-checkbox{width:2.2mm;height:2.2mm}
+      .print-sheet.dense .print-task-title{font-size:6.4pt;line-height:1.05}
+      .print-sheet.dense .print-task-meta{font-size:5.3pt;line-height:1.05}
+      .print-sheet.ultra .print-title-row h1{font-size:12pt}
+      .print-sheet.ultra .print-event-meta{gap:1mm;margin-bottom:1mm}
+      .print-sheet.ultra .print-event-meta>div{padding:.6mm 1mm}
+      .print-sheet.ultra .print-task-grid{gap:.45mm 1.2mm}
+      .print-sheet.ultra .print-task{padding:.45mm .6mm;grid-template-columns:2mm minmax(0,1fr);gap:.5mm}
+      .print-sheet.ultra .print-checkbox{width:1.8mm;height:1.8mm}
+      .print-sheet.ultra .print-task-title{font-size:5.8pt;line-height:1.02;margin-bottom:.2mm}
+      .print-sheet.ultra .print-task-meta{font-size:4.8pt;line-height:1.02;max-height:1.1em}
+    }
+    @media(max-width:780px){.print-toolbar{margin:8px;padding:10px;align-items:flex-start;flex-direction:column}.print-actions{width:100%}.print-actions .print-button{flex:1}.print-sheet{width:calc(100% - 16px);min-height:0;margin:8px;padding:16px}.print-event-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.print-task-grid{grid-template-columns:1fr}.print-sheet-footer{margin-top:12px}}
+  </style>
+</head>
+<body>
+  <div class="print-toolbar">
+    <p><strong>Checklist pronto para impressão</strong><br>Formato A4 horizontal, planejado para no máximo duas páginas (uma folha frente e verso). Na janela de impressão, selecione A4 e ative frente e verso, se disponível.</p>
+    <div class="print-actions">
+      <button class="print-button" type="button" onclick="window.print()">▤ Imprimir / salvar PDF</button>
+      <a class="print-button secondary" href="{{ url_for('event_detail', event_id=event.id) }}#checklist">Voltar ao evento</a>
+    </div>
+  </div>
+  {% for page_tasks in task_pages %}
+  <section class="print-sheet {{ density }}">
+    <div class="print-sheet-inner">
+      <div class="print-brand-row">
+        <div class="print-brand"><span class="print-brand-mark">F</span><span>CENTRO UNIVERSITÁRIO FMABC<br><small style="font-size:7px;font-weight:500;letter-spacing:.03em">GESTÃO DE EVENTOS</small></span></div>
+        <div class="print-kicker">CHECKLIST OPERACIONAL · {{ 'PÁGINA ' ~ loop.index ~ ' DE ' ~ (task_pages|length) }}</div>
+      </div>
+      <div class="print-title-row">
+        <h1>{{ event.title }}</h1>
+        <span class="print-protocol">{{ event.protocol }}</span>
+      </div>
+      <div class="print-event-meta">
+        <div><span>Data / horário</span><strong>{% if event.start_date %}{{ event.start_date[8:10] }}/{{ event.start_date[5:7] }}/{{ event.start_date[:4] }}{% else %}A definir{% endif %} · {{ event.start_time or 'Horário a definir' }}{% if event.end_time %} – {{ event.end_time }}{% endif %}</strong></div>
+        <div><span>Formato</span><strong>{{ event.event_format or 'Não informado' }}</strong></div>
+        <div><span>Local</span><strong>{{ event.venue or 'Não informado' }}</strong></div>
+        <div><span>Setor organizador</span><strong>{{ event.department or 'Não informado' }}</strong></div>
+      </div>
+      <div class="print-progress-line"><span>{{ completed }} de {{ tasks|length }} tarefas concluídas ou dispensadas · {{ progress }}% concluído</span><strong>{{ event.organizer_name }}</strong></div>
+      <div class="print-tasks-heading"><h2>Itens do checklist</h2><span>{{ page_tasks|length }} tarefa(s) nesta página · Marque à mão após conferir</span></div>
+      <div class="print-task-grid">
+        {% for task in page_tasks %}
+        <article class="print-task">
+          <span class="print-checkbox" aria-hidden="true"></span>
+          <div class="print-task-content">
+            <p class="print-task-title">{{ task.title }}</p>
+            <div class="print-task-meta"><strong>{{ task_statuses.get(task.status, task.status) }}</strong> · {{ task.category or 'Geral' }} · Prazo: {% if task.due_date %}{{ task.due_date[8:10] }}/{{ task.due_date[5:7] }}/{{ task.due_date[:4] }}{% else %}A definir{% endif %} · Responsável: {{ task.assigned_to or 'A definir' }}</div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      <div class="print-sheet-footer"><span>FMABC Eventos · Uso interno</span><span>Protocolo {{ event.protocol }} · {{ loop.index }}/{{ task_pages|length }}</span></div>
+    </div>
+  </section>
+  {% endfor %}
+  {% if auto_print %}<script>window.addEventListener('load', function () { window.setTimeout(function () { window.print(); }, 500); });</script>{% endif %}
+</body>
+</html>

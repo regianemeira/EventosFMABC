@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Avaliação do evento{% endblock %}
+{% block content %}
+<section class="public-evaluation-wrap">
+  <div class="eyebrow">CENTRO UNIVERSITÁRIO FMABC · AVALIAÇÃO PÓS-EVENTO</div>
+  <h1>Avalie sua experiência</h1>
+  <p class="evaluation-lead">Sua opinião ajuda a aprimorar a organização dos próximos eventos e o atendimento do Setor de Eventos.</p>
+  <section class="panel evaluation-event-card"><span class="card-kicker">EVENTO</span><h2>{{ evaluation.event_title }}</h2><p>Protocolo {{ evaluation.protocol }} · Data: {{ evaluation.start_date[8:10] }}/{{ evaluation.start_date[5:7] }}/{{ evaluation.start_date[:4] }}</p></section>
+  {% if submitted or evaluation.responded_at %}
+    <section class="panel evaluation-thanks"><div class="thanks-mark">✓</div><h2>Agradecemos sua avaliação</h2><p>Suas respostas foram registradas. Elas serão utilizadas para avaliar a experiência e identificar oportunidades de melhoria no atendimento do Setor de Eventos da FMABC.</p></section>
+  {% else %}
+    <form class="panel public-evaluation-form" method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+      <p class="evaluation-instructions">Para cada afirmação, selecione uma nota de 1 a 5, em que 1 significa “Muito insatisfeito” e 5 significa “Muito satisfeito”.</p>
+      {% set questions = [
+        ('rating_overall', 'Como você avalia a experiência geral do evento?'),
+        ('rating_sector', 'Como você avalia o atendimento do Setor de Eventos da FMABC?'),
+        ('rating_communication', 'Como você avalia a clareza e a qualidade da comunicação durante a organização?'),
+        ('rating_responsiveness', 'Como você avalia a agilidade das respostas e a resolução de pendências?'),
+        ('rating_needs_met', 'As necessidades combinadas para o evento foram atendidas?')
+      ] %}
+      {% for field, question in questions %}
+        <fieldset class="rating-question"><legend>{{ loop.index }}. {{ question }} <span class="required-star">*</span></legend><div class="rating-options">{% for n in range(1,6) %}<label><input type="radio" name="{{ field }}" value="{{ n }}" required><span>{{ n }}</span></label>{% endfor %}</div><div class="rating-scale"><span>Muito insatisfeito</span><span>Muito satisfeito</span></div></fieldset>
+      {% endfor %}
+      <div class="field"><label for="positive_feedback">O que funcionou bem?</label><textarea id="positive_feedback" name="positive_feedback" rows="3" maxlength="3000" placeholder="Pontos positivos da experiência."></textarea></div>
+      <div class="field"><label for="improvement_suggestions">O que poderia melhorar?</label><textarea id="improvement_suggestions" name="improvement_suggestions" rows="3" maxlength="3000" placeholder="Sugestões para próximos eventos."></textarea></div>
+      <div class="field"><label for="additional_comments">Comentários adicionais</label><textarea id="additional_comments" name="additional_comments" rows="3" maxlength="3000" placeholder="Campo opcional."></textarea></div>
+      <button class="btn btn-primary btn-wide" type="submit">Enviar avaliação</button>
+      <p class="privacy-note-public">As respostas ficam vinculadas a este evento e são utilizadas para avaliação interna e melhoria dos processos.</p>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}
