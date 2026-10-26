@@ -489,7 +489,7 @@ def init_db() -> None:
         db.commit()
         print("\n[FMABC Eventos] Usuário administrativo inicial criado.")
         print(f"E-mail: {email}")
-        print(f"Senha inicial: {password}")
+        print("Usuário administrativo inicial criado.")
         print("Defina ADMIN_PASSWORD e SECRET_KEY no .env antes de usar em ambiente institucional.\n")
 
 
