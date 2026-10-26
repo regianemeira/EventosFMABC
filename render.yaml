@@ -1,0 +1,53 @@
+# Configuração do Render (Blueprint).
+# No painel do Render: "New +" -> "Blueprint" -> selecione este repositório.
+# O Render lê este arquivo e já propõe o serviço configurado abaixo.
+#
+# IMPORTANTE: o disco persistente (seção "disks") guarda o banco SQLite e os
+# anexos em /var/data. Sem ele, cada novo deploy apaga os dados. Planos pagos
+# do Render incluem disco; confirme o tamanho (1 GB inicial é suficiente para
+# começar e pode ser aumentado depois).
+
+services:
+  - type: web
+    name: fmabc-eventos
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "waitress-serve --listen=0.0.0.0:$PORT app:app"
+    autoDeploy: true
+    disk:
+      name: fmabc-eventos-dados
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATABASE_PATH
+        value: /var/data/fmabc_eventos.db
+      - key: FMABC_ANEXOS_DIR
+        value: /var/data/anexos
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: APP_BASE_URL
+        sync: false
+      - key: LEMBRETES_AUTOMATICOS
+        value: "1"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMTP_USE_TLS
+        value: "1"
+      - key: PYTHON_VERSION
+        value: "3.12.7"
