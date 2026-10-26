@@ -1,25 +1,23 @@
-# Configuração do Render (Blueprint).
+# Configuração do Render (Blueprint) — versão gratuita, com o banco de dados
+# em um PostgreSQL externo (ex.: Neon), em vez de disco pago do Render.
+#
 # No painel do Render: "New +" -> "Blueprint" -> selecione este repositório.
 # O Render lê este arquivo e já propõe o serviço configurado abaixo.
 #
-# IMPORTANTE: o disco persistente (seção "disks") guarda o banco SQLite e os
-# anexos em /var/data. Sem ele, cada novo deploy apaga os dados. Planos pagos
-# do Render incluem disco; confirme o tamanho (1 GB inicial é suficiente para
-# começar e pode ser aumentado depois).
+# IMPORTANTE: crie o banco PostgreSQL grátis (ex.: em neon.tech) ANTES de criar
+# este serviço, e tenha a "connection string" dele em mãos — ela é pedida na
+# tela de criação, na variável DATABASE_URL. Veja o guia
+# LEIA-ME_BANCO_POSTGRES_GRATIS.md para o passo a passo completo.
 
 services:
   - type: web
     name: fmabc-eventos
     runtime: python
-    plan: starter
+    plan: free
     region: oregon
     buildCommand: "pip install -r requirements.txt"
     startCommand: "waitress-serve --listen=0.0.0.0:$PORT app:app"
     autoDeploy: true
-    disk:
-      name: fmabc-eventos-dados
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: SECRET_KEY
         generateValue: true
@@ -27,10 +25,8 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-      - key: DATABASE_PATH
-        value: /var/data/fmabc_eventos.db
-      - key: FMABC_ANEXOS_DIR
-        value: /var/data/anexos
+      - key: DATABASE_URL
+        sync: false
       - key: COOKIE_SECURE
         value: "1"
       - key: APP_BASE_URL
@@ -51,3 +47,8 @@ services:
         value: "1"
       - key: PYTHON_VERSION
         value: "3.12.7"
+
+# Quer manter o plano pago "Starter" com disco persistente (SQLite) em vez
+# de um PostgreSQL externo? Troque "plan: free" por "plan: starter" e volte a
+# incluir a seção "disk" (veja a versão anterior deste arquivo no histórico do
+# projeto, ou peça para eu recriar essa variante).
