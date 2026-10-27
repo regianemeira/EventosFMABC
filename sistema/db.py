@@ -60,6 +60,12 @@ def _translate_for_postgres(sql: str, add_returning: bool = True) -> str:
     psycopg2 não devolve isso em lote mesmo."""
     translated = sql
 
+    # BEGIN IMMEDIATE (SQLite) não existe no Postgres; BEGIN sozinho já abre a
+    # transação (usado em publico.py para travar a verificação de conflito de
+    # horário/local contra dois envios simultâneos do mesmo espaço).
+    if translated.strip().upper().rstrip(";") == "BEGIN IMMEDIATE":
+        return "BEGIN"
+
     # INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING (mesmo efeito prático
     # nas 3 tabelas em que é usado: evita duplicar uma linha já existente).
     if _INSERT_OR_IGNORE.search(translated):
