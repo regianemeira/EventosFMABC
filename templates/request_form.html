@@ -50,6 +50,14 @@
   {% if form and form.get('_errors') %}<div class="inline-alert">{{ form.get('_errors') }}</div>{% endif %}
   <div class="form-submit-row"><p><em>*</em> Campos obrigatórios. O envio não representa aprovação automática do evento.</p><button class="btn btn-primary btn-large" type="submit">Enviar solicitação <span>→</span></button></div>
 </form>
+<dialog id="alert-modal" class="alert-modal">
+  <div class="alert-modal-body">
+    <div class="alert-modal-icon" aria-hidden="true">!</div>
+    <h2>Não foi possível enviar</h2>
+    <p id="alert-modal-message"></p>
+    <form method="dialog"><button class="btn btn-primary" type="submit">OK, entendi</button></form>
+  </div>
+</dialog>
 <script>
   const requestForm = document.querySelector('.request-form');
   const categorySelect = document.querySelector('#event_category');
@@ -57,7 +65,15 @@
   const categoryOtherInput = document.querySelector('#event_category_other');
   const availabilityBox = document.querySelector('#reservation-availability');
   const submitButton = requestForm?.querySelector('button[type="submit"]');
+  const alertModal = document.querySelector('#alert-modal');
+  const alertModalMessage = document.querySelector('#alert-modal-message');
   let allowSubmitAfterCheck = false;
+
+  function openAlertModal(message) {
+    if (!alertModal || typeof alertModal.showModal !== 'function') { alert(message); return; }
+    alertModalMessage.textContent = message;
+    if (!alertModal.open) alertModal.showModal();
+  }
   let checkSequence = 0;
   let availabilityTimer = null;
 
@@ -161,8 +177,10 @@
         return { ready: true, validTime: false, conflict: false };
       }
       if (data.conflict) {
-        showAvailability('error', data.message || 'O espaço já está reservado nesta data e horário para outro evento. Escolha outra data, horário ou local.');
+        const conflictMessage = data.message || 'O espaço já está reservado nesta data e horário para outro evento. Escolha outra data, horário ou local.';
+        showAvailability('error', conflictMessage);
         if (submitButton) submitButton.disabled = true;
+        if (force || !alertModal.open) openAlertModal(conflictMessage);
         return { ready: true, validTime: true, conflict: true };
       }
       if (data.ready) {
