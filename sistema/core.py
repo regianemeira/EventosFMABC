@@ -797,9 +797,63 @@ def smtp_settings() -> dict:
         "use_tls": os.getenv("SMTP_USE_TLS", "1").lower() in {"1", "true", "yes"},
     }
 
+def brevo_api_key() -> str:
+    return os.getenv("BREVO_API_KEY", "").strip()
+
+
 def smtp_is_configured() -> bool:
+    """Verdadeiro quando o sistema tem como enviar e-mails: pela API HTTP da
+    Brevo (BREVO_API_KEY — funciona em qualquer hospedagem, inclusive no plano
+    gratuito do Render, que bloqueia as portas de SMTP) ou por SMTP tradicional."""
     cfg = smtp_settings()
+    if brevo_api_key():
+        return bool(cfg["from_email"])
     return bool(cfg["host"] and cfg["from_email"])
+
+
+def _send_via_brevo_api(cfg: dict, msg: EmailMessage) -> None:
+    """Envia pela API HTTP da Brevo (porta 443), que continua funcionando em
+    hospedagens que bloqueiam as portas de SMTP (25/465/587), como o plano
+    gratuito do Render. Lança exceção em caso de falha, como o smtplib."""
+    import json
+    from urllib import error as urlerror, request as urlrequest
+
+    payload = {
+        "sender": {"email": cfg["from_email"]},
+        "to": [{"email": msg["To"]}],
+        "subject": msg["Subject"],
+        "textContent": msg.get_content(),
+    }
+    req = urlrequest.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={"api-key": brevo_api_key(), "Content-Type": "application/json", "Accept": "application/json"},
+    )
+    try:
+        with urlrequest.urlopen(req, timeout=20) as resp:
+            if resp.status >= 300:
+                raise RuntimeError(f"Brevo API respondeu HTTP {resp.status}")
+    except urlerror.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300]
+        raise RuntimeError(f"Brevo API HTTP {exc.code}: {detail}") from exc
+
+
+def send_email_message(msg: EmailMessage) -> None:
+    """Envia um e-mail já montado (EmailMessage), pela API da Brevo quando
+    BREVO_API_KEY estiver definida, senão por SMTP tradicional. Lança exceção
+    em caso de falha — quem chama decide como tratar, igual já fazia com o
+    smtplib diretamente."""
+    cfg = smtp_settings()
+    if brevo_api_key():
+        _send_via_brevo_api(cfg, msg)
+        return
+    with smtplib.SMTP(cfg["host"], cfg["port"], timeout=20) as server:
+        if cfg["use_tls"]:
+            server.starttls()
+        if cfg["user"]:
+            server.login(cfg["user"], cfg["password"])
+        server.send_message(msg)
 
 @app.before_request
 def csrf_protection():
@@ -1585,21 +1639,26 @@ def send_pending_emails(limit: int = 25) -> dict:
         cfg = smtp_settings()
         rows = conn.execute("SELECT * FROM email_outbox WHERE status='pendente' AND attempts < 3 ORDER BY id LIMIT ?", (limit,)).fetchall()
         if rows:
+            use_brevo_api = bool(brevo_api_key())
+            server = None
+            if not use_brevo_api:
+                # SMTP tradicional: uma conexão só, reaproveitada para todos os e-mails do lote.
+                try:
+                    server = smtplib.SMTP(cfg["host"], cfg["port"], timeout=20)
+                    if cfg["use_tls"]:
+                        server.starttls()
+                    if cfg["user"]:
+                        server.login(cfg["user"], cfg["password"])
+                except Exception as exc:
+                    detail = f"Conexão SMTP: {type(exc).__name__}: {exc}"[:500]
+                    for row in rows:
+                        conn.execute("UPDATE email_outbox SET attempts=attempts+1, last_error=?, status=CASE WHEN attempts+1>=3 THEN 'erro' ELSE 'pendente' END WHERE id=?",
+                                     (detail, row["id"]))
+                    conn.commit()
+                    summary["falhas"] = len(rows)
+                    conn.close()
+                    return summary
             try:
-                server = smtplib.SMTP(cfg["host"], cfg["port"], timeout=20)
-                if cfg["use_tls"]:
-                    server.starttls()
-                if cfg["user"]:
-                    server.login(cfg["user"], cfg["password"])
-            except Exception as exc:
-                detail = f"Conexão SMTP: {type(exc).__name__}: {exc}"[:500]
-                for row in rows:
-                    conn.execute("UPDATE email_outbox SET attempts=attempts+1, last_error=?, status=CASE WHEN attempts+1>=3 THEN 'erro' ELSE 'pendente' END WHERE id=?",
-                                 (detail, row["id"]))
-                conn.commit()
-                summary["falhas"] = len(rows)
-                return summary
-            with server:
                 for row in rows:
                     msg = EmailMessage()
                     msg["Subject"] = row["subject"]
@@ -1608,7 +1667,8 @@ def send_pending_emails(limit: int = 25) -> dict:
                     # quoted-printable chega íntegro mesmo em servidores sem suporte a 8 bits (acentos e aspas).
                     msg.set_content(row["body"], cte="quoted-printable")
                     try:
-                        server.send_message(msg)
+                        # Pela API da Brevo (não depende de porta de SMTP) ou pelo SMTP já conectado.
+                        _send_via_brevo_api(cfg, msg) if use_brevo_api else server.send_message(msg)
                         conn.execute("UPDATE email_outbox SET status='enviado', sent_at=?, attempts=attempts+1, last_error=NULL WHERE id=?", (now_iso(), row["id"]))
                         summary["enviados"] += 1
                     except Exception as exc:
@@ -1617,6 +1677,12 @@ def send_pending_emails(limit: int = 25) -> dict:
                                      (detail, row["id"]))
                         summary["falhas"] += 1
                     conn.commit()
+            finally:
+                if server is not None:
+                    try:
+                        server.quit()
+                    except Exception:
+                        pass
         conn.close()
     finally:
         _OUTBOX_LOCK.release()

@@ -644,16 +644,11 @@ def send_communication_batch(batch_id):
     msg["To"] = recipient
     msg.set_content(batch["body"], cte="quoted-printable")
     try:
-        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=20) as server:
-            if cfg["use_tls"]:
-                server.starttls()
-            if cfg["user"]:
-                server.login(cfg["user"], cfg["password"])
-            server.send_message(msg)
+        send_email_message(msg)
         _mark_batch_sent(db, batch_id, "smtp")
         flash(f"Comunicado enviado para {recipient} e registrado no histórico.", "success")
     except Exception as exc:
-        safe_error = f"Falha no envio SMTP: {type(exc).__name__}"
+        safe_error = f"Falha no envio: {type(exc).__name__}: {exc}"[:500]
         db.execute("UPDATE communication_batches SET error_message=? WHERE id=?", (safe_error, batch_id))
         db.commit()
         flash("Não foi possível enviar o comunicado. Confira a configuração com a TI; o rascunho foi preservado.", "error")
