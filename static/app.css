@@ -910,4 +910,14 @@ html.nav-collapsed .logout-button{justify-content:center!important;width:48px;pa
 .ev-triage-row .triage-form{max-width:980px}
 .detail-side-col .triage-form-grid{grid-template-columns:1fr}
 @media(max-width:820px){.triage-form-grid{grid-template-columns:1fr}.ev-toolbar .ev-new{margin-left:0}}
+
+/* Popup de alerta (conflito de reserva etc.): exige clique em "OK" para ter certeza que foi visto. */
+.alert-modal{border:none;border-radius:var(--radius);padding:0;max-width:440px;width:calc(100% - 40px);box-shadow:0 25px 60px rgba(20,45,70,.25)}
+.alert-modal::backdrop{background:rgba(17,45,73,.45);backdrop-filter:blur(1px)}
+.alert-modal-body{padding:28px 26px 24px;display:flex;flex-direction:column;gap:14px;text-align:center}
+.alert-modal-icon{width:52px;height:52px;border-radius:50%;background:#fff0ee;color:#a23c31;display:grid;place-items:center;font-size:26px;font-weight:700;margin:0 auto}
+.alert-modal-body h2{margin:0;font-size:calc(17px * var(--fmabc-font-scale,1));color:var(--ink)}
+.alert-modal-body p{margin:0;color:var(--muted);line-height:1.6;font-size:calc(13px * var(--fmabc-font-scale,1))}
+.alert-modal-body form{margin-top:6px}
+.alert-modal-body .btn{width:100%}
 .ev-table th:last-child,.ev-table td.ev-actions{min-width:120px}
