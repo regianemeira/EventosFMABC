@@ -1592,9 +1592,10 @@ def send_pending_emails(limit: int = 25) -> dict:
                 if cfg["user"]:
                     server.login(cfg["user"], cfg["password"])
             except Exception as exc:
+                detail = f"Conexão SMTP: {type(exc).__name__}: {exc}"[:500]
                 for row in rows:
                     conn.execute("UPDATE email_outbox SET attempts=attempts+1, last_error=?, status=CASE WHEN attempts+1>=3 THEN 'erro' ELSE 'pendente' END WHERE id=?",
-                                 (f"Conexão SMTP: {type(exc).__name__}", row["id"]))
+                                 (detail, row["id"]))
                 conn.commit()
                 summary["falhas"] = len(rows)
                 return summary
@@ -1611,8 +1612,9 @@ def send_pending_emails(limit: int = 25) -> dict:
                         conn.execute("UPDATE email_outbox SET status='enviado', sent_at=?, attempts=attempts+1, last_error=NULL WHERE id=?", (now_iso(), row["id"]))
                         summary["enviados"] += 1
                     except Exception as exc:
+                        detail = f"{type(exc).__name__}: {exc}"[:500]
                         conn.execute("UPDATE email_outbox SET attempts=attempts+1, last_error=?, status=CASE WHEN attempts+1>=3 THEN 'erro' ELSE 'pendente' END WHERE id=?",
-                                     (type(exc).__name__, row["id"]))
+                                     (detail, row["id"]))
                         summary["falhas"] += 1
                     conn.commit()
         conn.close()
