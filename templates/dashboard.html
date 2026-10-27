@@ -13,6 +13,14 @@
   </div>
 </div>
 
+{% if new_event_alert_count %}
+<a href="{{ url_for('events_list', aba='triar') }}" class="new-event-banner" role="alert">
+  <span class="new-event-banner-dot"></span>
+  <span class="new-event-banner-text"><strong>{{ new_event_alert_count }}</strong> {{ 'nova solicitação de evento aguardando triagem' if new_event_alert_count == 1 else 'novas solicitações de evento aguardando triagem' }}</span>
+  <span class="new-event-banner-link">Ver agora <b>→</b></span>
+</a>
+{% endif %}
+
 {% if upcoming %}
 <section class="featured-events-section" aria-label="Eventos em destaque">
   <div class="featured-section-heading">
@@ -36,7 +44,7 @@
 
 <section class="metric-grid dashboard-metrics">
   <a target="_blank" rel="noopener" aria-label="Abrir todos os eventos em nova aba" href="{{ url_for('events_list', aba='todos') }}" class="metric-card metric-card-total metric-card-action"><div class="metric-top"><span class="metric-label">Solicitações e eventos</span><span class="metric-symbol navy">Σ</span></div><div class="metric-value">{{ total }}</div><div class="metric-foot">Registros no sistema</div><div class="metric-accent-line"></div></a>
-  <a target="_blank" rel="noopener" aria-label="Abrir solicitações para triar em nova aba" href="{{ url_for('events_list', aba='triar') }}" class="metric-card metric-card-pending metric-card-action"><div class="metric-top"><span class="metric-label">Precisam de triagem</span><span class="metric-symbol amber">!</span></div><div class="metric-value">{{ pending }}</div><div class="metric-foot">Novos ou com pendências</div><div class="metric-accent-line"></div></a>
+  <a target="_blank" rel="noopener" aria-label="Abrir solicitações para triar em nova aba" href="{{ url_for('events_list', aba='triar') }}" class="metric-card metric-card-pending metric-card-action{% if new_event_alert_count %} has-new-alert{% endif %}"><div class="metric-top"><span class="metric-label">Precisam de triagem</span><span class="metric-symbol amber">!</span></div><div class="metric-value">{{ pending }}</div><div class="metric-foot">Novos ou com pendências</div><div class="metric-accent-line"></div></a>
   <a target="_blank" rel="noopener" aria-label="Abrir eventos em planejamento em nova aba" href="{{ url_for('events_list', aba='planejamento') }}" class="metric-card metric-card-active metric-card-action"><div class="metric-top"><span class="metric-label">Em organização</span><span class="metric-symbol green">↗</span></div><div class="metric-value">{{ active }}</div><div class="metric-foot">Aprovados ou em planejamento</div><div class="metric-accent-line"></div></a>
   <a target="_blank" rel="noopener" aria-label="Abrir agenda institucional em nova aba" href="{{ url_for('institutional_calendar') }}" class="metric-card metric-card-upcoming metric-card-action"><div class="metric-top"><span class="metric-label">Agenda próxima</span><span class="metric-symbol blue">◷</span></div><div class="metric-value">{{ upcoming|length }}</div><div class="metric-foot">Próximos eventos exibidos abaixo</div><div class="metric-accent-line"></div></a>
 </section>
