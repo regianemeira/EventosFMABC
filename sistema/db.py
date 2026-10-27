@@ -52,8 +52,12 @@ _LIKE_WORD = re.compile(r"\bLIKE\b", re.IGNORECASE)
 _INSERT_INTO_TABLE = re.compile(r"^\s*INSERT\s+INTO\s+(\w+)", re.IGNORECASE)
 
 
-def _translate_for_postgres(sql: str) -> str:
-    """Converte uma instrução no dialeto do SQLite usado neste sistema para PostgreSQL."""
+def _translate_for_postgres(sql: str, add_returning: bool = True) -> str:
+    """Converte uma instrução no dialeto do SQLite usado neste sistema para PostgreSQL.
+
+    `add_returning=False` é usado pelo executemany (carga inicial de dados em lote):
+    não faz sentido pedir o id de volta quando são várias linhas de uma vez, e o
+    psycopg2 não devolve isso em lote mesmo."""
     translated = sql
 
     # INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING (mesmo efeito prático
@@ -76,7 +80,7 @@ def _translate_for_postgres(sql: str) -> str:
     # cursor.lastrowid (usado após alguns INSERTs) não existe no psycopg2; simulamos
     # acrescentando "RETURNING id" nos INSERTs de tabelas que têm chave "id" serial.
     stripped = translated.strip()
-    if stripped[:6].upper() == "INSERT" and "RETURNING" not in translated.upper():
+    if add_returning and stripped[:6].upper() == "INSERT" and "RETURNING" not in translated.upper():
         match = _INSERT_INTO_TABLE.search(translated)
         table = match.group(1).lower() if match else None
         if table and table not in _TABELAS_SEM_ID_SERIAL:
@@ -141,6 +145,14 @@ class PostgresConnection:
             row = cur.fetchone()
             wrapper.lastrowid = row[0] if row else None
         return wrapper
+
+    def executemany(self, sql: str, seq_of_params) -> None:
+        """Usado nas cargas iniciais (modelos de checklist, itens de apoio),
+        que inserem várias linhas de uma vez. Sem RETURNING — não é usado
+        para pegar o id de cada linha, só para popular o banco na primeira vez."""
+        translated = _translate_for_postgres(sql, add_returning=False)
+        cur = self._conn.cursor()
+        cur.executemany(translated, [tuple(params) for params in seq_of_params])
 
     def executescript(self, script: str) -> None:
         # psycopg2 não tem um equivalente direto a sqlite3.executescript; como o
