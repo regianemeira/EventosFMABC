@@ -839,6 +839,70 @@ def _send_via_brevo_api(cfg: dict, msg: EmailMessage) -> None:
         raise RuntimeError(f"Brevo API HTTP {exc.code}: {detail}") from exc
 
 
+def anthropic_api_key() -> str:
+    return os.getenv("ANTHROPIC_API_KEY", "").strip()
+
+
+def ask_manual_assistant(question: str, excerpts: list, history: list | None = None) -> str:
+    """Pede à API da Anthropic para responder à pergunta da pessoa usando SOMENTE
+    os trechos do Manual de Eventos localizados pela busca local (sistema/../manual_search.py).
+    O modelo é instruído a nunca completar com conhecimento externo ou suposições,
+    e a dizer claramente quando o manual não cobre o assunto. Lança exceção em caso
+    de falha — quem chama decide o que mostrar nesse caso (ex.: cair para a busca
+    literal, como já acontecia antes desta função existir)."""
+    import json
+    from urllib import error as urlerror, request as urlrequest
+
+    if excerpts:
+        contexto = "\n\n".join(
+            f"[Página {item['page']} do manual — {item['section']}]\n{item['text']}"
+            for item in excerpts
+        )
+    else:
+        contexto = "(Nenhum trecho do Manual de Eventos corresponde a esta pergunta.)"
+
+    system_prompt = (
+        "Você é o assistente de consulta ao Manual de Cerimonial e Eventos do Centro "
+        "Universitário FMABC, dentro do sistema interno de gestão de eventos. Responda "
+        "SOMENTE com base nos trechos do manual reproduzidos abaixo — nunca complete a "
+        "resposta com conhecimento geral, suposições ou práticas de outras instituições. "
+        "Se os trechos não cobrirem a pergunta, diga isso claramente e sugira falar com o "
+        "Setor de Eventos da FMABC; não invente uma orientação. Responda sempre em "
+        "português, em tom cordial e objetivo, citando a página do manual quando usar uma "
+        "informação dela.\n\n"
+        f"Trechos do manual relevantes à pergunta atual:\n{contexto}"
+    )
+
+    messages = [dict(item) for item in (history or [])]
+    messages.append({"role": "user", "content": question})
+
+    payload = {
+        "model": os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5").strip() or "claude-sonnet-5",
+        "max_tokens": 700,
+        "system": system_prompt,
+        "messages": messages,
+    }
+    req = urlrequest.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={
+            "x-api-key": anthropic_api_key(),
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+    )
+    try:
+        with urlrequest.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urlerror.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300]
+        raise RuntimeError(f"API da Anthropic respondeu HTTP {exc.code}: {detail}") from exc
+    parts = [block.get("text", "") for block in data.get("content", []) if block.get("type") == "text"]
+    answer = "\n".join(part for part in parts if part).strip()
+    return answer or "Não consegui gerar uma resposta agora. Tente novamente em instantes."
+
+
 def send_email_message(msg: EmailMessage) -> None:
     """Envia um e-mail já montado (EmailMessage), pela API da Brevo quando
     BREVO_API_KEY estiver definida, senão por SMTP tradicional. Lança exceção
@@ -867,8 +931,21 @@ def csrf_protection():
 def inject_template_globals():
     if "_csrf" not in session:
         session["_csrf"] = secrets.token_urlsafe(32)
+    new_event_alert_count = 0
+    if session.get("user_id"):
+        try:
+            row = get_db().execute(
+                "SELECT COUNT(*) total FROM events WHERE status = 'recebido'"
+            ).fetchone()
+            new_event_alert_count = row["total"] if row else 0
+        except Exception:
+            # A tabela pode não existir ainda (ex.: banco recém-criado, migração
+            # em andamento, ou backend PostgreSQL com erro transitório). Nesse
+            # caso o alerta simplesmente fica em zero em vez de quebrar a página.
+            new_event_alert_count = 0
     return {
         "csrf_token": session["_csrf"],
+        "new_event_alert_count": new_event_alert_count,
         "status_labels": STATUS_LABELS,
         "status_classes": STATUS_CLASSES,
         "event_types": EVENT_TYPES,
