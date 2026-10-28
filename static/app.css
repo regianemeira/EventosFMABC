@@ -1043,3 +1043,21 @@ html.nav-collapsed .logout-button{justify-content:center!important;width:48px;pa
 .report-chart-bar{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--green),var(--green-dark));transition:width .3s ease}
 .report-chart-value{font-size:calc(10.5px * var(--fmabc-font-scale,1));font-weight:750;color:var(--navy);text-align:right}
 @media(max-width:720px){.report-chart-row{grid-template-columns:110px 1fr 70px;gap:8px}.report-model-picker{grid-template-columns:1fr}}
+
+/* Orçamento — painel de edição de despesa (reformulado para não ficar espremido na coluna Ações) */
+.budget-edit-toggle{white-space:nowrap}
+.budget-edit-row td{padding:0;border-top:none}
+.budget-edit-panel{background:#f8fbf8;border:1px solid #e0e8e2;border-radius:12px;padding:20px 22px;margin:4px 0 14px}
+.budget-edit-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.budget-edit-panel-heading h3{margin:0;font-size:calc(14px * var(--fmabc-font-scale,1));color:#244635}
+.budget-edit-section-title{margin:16px 0 8px;font-size:calc(10.5px * var(--fmabc-font-scale,1));font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#6b8577}
+.budget-edit-section-title:first-of-type{margin-top:2px}
+.budget-edit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px}
+.budget-edit-grid label{display:flex;flex-direction:column;gap:5px;font-size:calc(11px * var(--fmabc-font-scale,1));font-weight:700;color:#3d5548}
+.budget-edit-grid input,.budget-edit-grid select,.budget-edit-grid textarea{width:100%;min-width:0;border:1px solid #dfe6ed;border-radius:8px;padding:9px 10px;font:inherit;color:#27394b;background:#fff}
+.budget-edit-grid textarea{min-height:64px;resize:vertical}
+.budget-field-wide{grid-column:1/-1}
+.budget-edit-actions{margin-top:16px}
+.budget-edit-footer{margin-top:18px;padding-top:16px;border-top:1px dashed #cbd9ce}
+@media(max-width:900px){.budget-edit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.budget-edit-grid{grid-template-columns:1fr}.budget-edit-panel{padding:16px}}
