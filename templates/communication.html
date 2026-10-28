@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}Agenda, comunicação e tarefas por área{% endblock %}
+{% block title %}Comunicação{% endblock %}
 {% block content %}
 {% with section='comunicacao' %}{% include '_section_tabs.html' %}{% endwith %}
 <div class="page-heading communication-page-heading">
-  <p>Organize as providências de cada área, acompanhe confirmações e prazos, e prepare os comunicados mensais em uma única tela.</p>
+  <p>Prepare, revise e envie os comunicados mensais de cada área — como uma caixa de e-mail: rascunhos de um lado, enviados do outro.</p>
 </div>
 
 <div class="communication-note {% if smtp_configured %}communication-note-ok{% endif %}">
@@ -14,122 +14,176 @@
   </div>
 </div>
 
-<section class="panel communication-filter-panel communication-period-panel">
-  <div class="panel-heading"><div><h2>1. Selecione o período</h2><p>A agenda e os comunicados serão preparados para este mês.</p></div></div>
-  <form class="communication-filter" method="get" action="{{ url_for('communication_center') }}">
-    <div><label for="month">Mês</label><select id="month" name="month">{% for m in range(1,13) %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][m-1] }}</option>{% endfor %}</select></div>
-    <div><label for="year">Ano</label><select id="year" name="year">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select></div>
-    <div class="communication-area-select"><label for="edit_department_id">Área para editar as providências por evento</label><select id="edit_department_id" name="edit_department_id" required>{% for d in departments %}<option value="{{ d.id }}" {% if d.id == selected_id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select><span class="field-hint">Este campo define qual área você está configurando nos eventos abaixo; não define quem receberá o e-mail.</span></div>
-    <button class="btn btn-primary" type="submit">Atualizar agenda <span>→</span></button>
-  </form>
-</section>
+{% set sent_batches = batches | selectattr('status', 'equalto', 'enviado') | list %}
+{% set month_names = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'] %}
 
-<section class="panel communication-recipients-panel">
-  <div class="panel-heading communication-step-heading">
-    <div><h2>2. Quem deve receber a programação?</h2><p>Marque uma ou mais áreas. O sistema preparará um comunicado individual para cada destinatário selecionado, personalizado com as informações daquela área.</p></div>
-    <span class="communication-step-number">{{ departments|length }} áreas</span>
-  </div>
-  <form method="post" action="{{ url_for('generate_communication_batch') }}" id="recipient-generation-form" class="recipient-generation-form">
-    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-    <input type="hidden" name="year" value="{{ year }}">
-    <input type="hidden" name="month" value="{{ month }}">
-    <input type="hidden" name="edit_department_id" value="{{ selected_id }}">
-    <div class="recipient-actions">
-      <div class="recipient-selection-hint"><strong id="recipient-selected-count">{{ selected_recipient_ids|length }}</strong> área(s) selecionada(s)</div>
-      <div class="recipient-action-buttons"><button type="button" class="btn btn-quiet btn-small" id="select-all-recipients">Selecionar todas</button><button type="button" class="btn btn-quiet btn-small" id="clear-recipients">Limpar seleção</button></div>
-    </div>
-    {% if departments %}
-    <div class="recipient-grid">
-      {% for d in departments %}
-      <label class="recipient-choice {% if d.id in selected_recipient_ids %}recipient-choice-selected{% endif %}" for="recipient-{{ d.id }}">
-        <input id="recipient-{{ d.id }}" type="checkbox" name="recipient_department_ids" value="{{ d.id }}" {% if d.id in selected_recipient_ids %}checked{% endif %}>
-        <span class="recipient-choice-mark" aria-hidden="true"></span>
-        <span class="recipient-choice-copy"><strong>{{ d.name }}</strong><small>{% if d.recipient_email %}{{ d.recipient_email }}{% else %}E-mail ainda não cadastrado{% endif %}</small></span>
-        {% if d.recipient_email %}<span class="recipient-email-status recipient-email-ready">E-mail cadastrado</span>{% else %}<span class="recipient-email-status recipient-email-missing">Pendente</span>{% endif %}
-      </label>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state"><h3>Nenhuma área cadastrada</h3><p>Cadastre os departamentos e destinatários ao final desta página.</p></div>
-    {% endif %}
-    <div class="recipient-submit-row"><div><strong>Prévia personalizada por área</strong><p>Os rascunhos serão exibidos logo abaixo, nesta mesma página. E-mails ausentes podem ser preenchidos na prévia antes do envio.</p></div><button class="btn btn-primary" type="submit" id="generate-selected-batches" {% if not departments or not events %}disabled{% endif %}>Gerar prévias selecionadas <span>→</span></button></div>
-  </form>
-</section>
+<div class="comm-inbox" id="comm-inbox">
+  <aside class="comm-inbox-sidebar">
+    <button type="button" class="comm-compose-btn" id="comm-compose-trigger" data-target="view-compose">
+      <span class="comm-compose-btn-icon">✎</span> Novo comunicado
+    </button>
 
-<section class="communication-event-section communication-events-panel">
-  <div class="communication-section-heading">
-    <div><div class="eyebrow">AGENDA DO PERÍODO</div><h2>3. Revise participação e providências</h2><p>{{ events|length }} evento(s) aprovado(s) ou em planejamento em {{ ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][month-1] }} de {{ year }}. As mudanças de participação são específicas da área escolhida na etapa 1.</p></div>
-  </div>
-  {% if department and events %}
-  <div class="communication-event-list communication-event-list-compact">
-    {% for event in events %}
-    <article class="communication-event-card" id="event-{{ event.id }}">
-      <div class="communication-event-meta"><span class="communication-event-date">{{ event.start_date[8:10] }}/{{ event.start_date[5:7] }}/{{ event.start_date[:4] }}</span><span class="status-pill {{ status_classes.get(event.status, 'status-gray') }}">{{ status_labels.get(event.status, event.status) }}</span></div>
-      <h3>{{ event.title }}</h3>
-      <div class="communication-event-facts"><span><strong>Horário:</strong> {{ event.start_time or 'A confirmar' }}{% if event.end_time %} – {{ event.end_time }}{% endif %}</span><span><strong>Local:</strong> {{ event.venue or 'A confirmar' }}</span><span><strong>Responsável:</strong> {{ event.organizer_name or 'A confirmar' }}</span></div>
-      {% if event.involvement == 'acao' %}
-      <div class="department-task-summary">
-        <div class="department-task-summary-head"><strong>Acompanhamento da área</strong><span class="status-pill {% if event.task_status == 'concluida' %}status-green{% elif event.task_status in ['bloqueada','aguardando_terceiro'] or event.response_status in ['nao_podera_atender','precisa_alinhar'] %}status-amber{% else %}status-gray{% endif %}">{{ department_task_status_labels.get(event.task_status, event.task_status) }}</span></div>
-        <div class="department-task-summary-grid">
-          <span><small>Recebimento</small><strong>{% if event.receipt_confirmed_at %}Confirmado{% else %}Aguardando confirmação{% endif %}</strong>{% if event.receipt_confirmed_at %}<small>Por {{ event.receipt_confirmed_by or 'responsável não informado' }} · {{ event.receipt_confirmed_at[:16] }}</small>{% endif %}</span>
-          <span><small>Resposta da área</small><strong>{{ department_response_labels.get(event.response_status, event.response_status) }}</strong></span>
-          <span><small>Responsável</small><strong>{{ event.area_responsible or 'A definir' }}</strong></span>
-          <span><small>Prazo</small><strong>{% if event.due_date %}{{ event.due_date[8:10] }}/{{ event.due_date[5:7] }}/{{ event.due_date[:4] }}{% else %}Não definido{% endif %}</strong></span>
-        </div>
-        {% if event.response_by and event.responded_at %}<small class="area-response-notes">Atualizado por {{ event.response_by }} em {{ event.responded_at[:16] }}.</small>{% endif %}
-        {% if event.pending_reason %}<small class="department-pending-reason"><strong>Justificativa:</strong> {{ event.pending_reason }}</small>{% endif %}
-        {% if event.response_notes %}<small class="area-response-notes"><strong>Observações da área:</strong> {{ event.response_notes }}</small>{% endif %}
-        {% if event.response_token %}<a class="text-link department-task-public-link" target="_blank" rel="noopener" href="{{ url_for('department_response', token=event.response_token) }}">Abrir acompanhamento da área ↗</a>{% endif %}
+    <form class="comm-period-form" method="get" action="{{ url_for('communication_center') }}">
+      <input type="hidden" name="edit_department_id" value="{{ selected_id or '' }}">
+      <span class="comm-period-label">Período</span>
+      <div class="comm-period-row">
+        <select id="side-month" name="month" onchange="this.form.submit()" aria-label="Mês">{% for m in range(1,13) %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ month_names[m-1] }}</option>{% endfor %}</select>
+        <select id="side-year" name="year" onchange="this.form.submit()" aria-label="Ano">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select>
       </div>
-      {% endif %}
-      <details class="event-department-settings"><summary>Configurar participação e prazo de {{ department.name }}</summary>
-        <form class="communication-assignment-form" method="post" action="{{ url_for('save_event_department_update') }}">
-          <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="event_id" value="{{ event.id }}"><input type="hidden" name="department_id" value="{{ selected_id }}">
-          <div class="communication-assignment-fields department-task-assignment-fields">
-            <div><label for="involvement-{{ event.id }}">Participação da área</label><select id="involvement-{{ event.id }}" name="involvement">{% for value, label in roles.items() %}<option value="{{ value }}" {% if event.involvement == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-            <div><label for="area-responsible-{{ event.id }}">Responsável na área</label><input id="area-responsible-{{ event.id }}" name="area_responsible" value="{{ event.area_responsible or '' }}" maxlength="120" placeholder="Nome do responsável"></div>
-            <div><label for="area-due-{{ event.id }}">Prazo da providência</label><input id="area-due-{{ event.id }}" name="due_date" type="date" value="{{ event.due_date or '' }}"></div>
-            <div class="communication-details-field"><label for="details-{{ event.id }}">Providências que aparecerão no e-mail</label><input id="details-{{ event.id }}" name="details" value="{{ event.details or '' }}" placeholder="Ex.: testar áudio e vídeo; equipe deve chegar às 7h"></div>
-            <div class="communication-notes-field"><label for="notes-{{ event.id }}">Observação interna (não será enviada)</label><input id="notes-{{ event.id }}" name="notes" value="{{ event.update_notes or '' }}" placeholder="Nota para o Setor de Eventos"></div>
-            <button class="btn btn-secondary" type="submit">Salvar participação e prazo</button>
-          </div>
-        </form>
-      </details>
-      {% if event.update_history %}
-      <details class="department-task-history"><summary>Histórico de alterações ({{ event.update_history|length }} registro(s) recentes)</summary>
-        <ol class="department-task-history-list">
-          {% for history_item in event.update_history %}
-          <li><div><strong>{{ history_item.action }}</strong><small>{{ history_item.changed_at[:16] }} · {{ history_item.source }}{% if history_item.changed_by %} · {{ history_item.changed_by }}{% endif %}</small></div><p>{{ history_item.change_summary }}</p></li>
+    </form>
+
+    <div class="comm-inbox-lists">
+      <div class="comm-inbox-section">
+        <div class="comm-inbox-section-label"><span>Rascunhos</span><span class="comm-inbox-count">{{ draft_batches|length }}</span></div>
+        {% if draft_batches %}
+        <div class="comm-inbox-list">
+          {% for batch in draft_batches %}
+          <button type="button" class="comm-inbox-item" data-target="view-draft-{{ batch.id }}">
+            <span class="comm-inbox-item-icon comm-item-icon-draft">✉</span>
+            <span class="comm-inbox-item-copy">
+              <strong>{{ batch.department_name }}</strong>
+              <small>{{ batch.subject }}</small>
+              <small class="comm-inbox-item-meta">{{ batch.event_count }} evento(s){% if not batch.recipient_email %} · <span class="comm-item-warn">e-mail pendente</span>{% endif %}</small>
+            </span>
+          </button>
           {% endfor %}
-        </ol>
-      </details>
-      {% endif %}
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="empty-state"><div class="empty-shape">▦</div><h3>Nenhum evento neste período</h3><p>Não há eventos aprovados ou em planejamento para o período selecionado. Confira o mês ou o status dos eventos.</p></div>
-  {% endif %}
-</section>
-
-<section class="panel communication-drafts-panel" id="rascunhos-envio">
-  <div class="panel-heading communication-step-heading"><div><h2>4. Revisar e enviar — nesta mesma página</h2><p>Edite o destinatário, assunto e mensagem. Em seguida, salve, envie pelo sistema ou registre o envio realizado pelo Outlook.</p></div><span class="communication-step-number">{{ draft_batches|length }} rascunho(s)</span></div>
-  {% if draft_batches %}
-  <div class="communication-drafts-list">
-    {% for batch in draft_batches %}
-    <article class="communication-draft-card" id="draft-{{ batch.id }}">
-      <div class="communication-draft-summary">
-        <div class="communication-draft-icon">✉</div>
-        <div class="communication-draft-summary-copy"><strong>{{ batch.department_name }}</strong><span>{{ batch.event_count }} evento(s) · {{ '%02d'|format(batch.period_month) }}/{{ batch.period_year }}</span><small>{{ batch.recipient_email or 'Destinatário precisa ser preenchido' }}</small></div>
-        <span class="status-pill status-amber">Rascunho</span>
+        </div>
+        {% else %}
+        <p class="comm-inbox-empty-hint">Nenhum rascunho neste período.</p>
+        {% endif %}
       </div>
-      <details class="communication-inline-editor" {% if show_drafts %}open{% endif %}>
-        <summary>Revisar mensagem e opções de envio</summary>
-        <form class="communication-editor communication-inline-edit-form" method="post" action="{{ url_for('update_communication_batch', batch_id=batch.id) }}">
+
+      <div class="comm-inbox-section">
+        <div class="comm-inbox-section-label"><span>Enviados</span><span class="comm-inbox-count">{{ sent_batches|length }}</span></div>
+        {% if sent_batches %}
+        <div class="comm-inbox-list">
+          {% for batch in sent_batches %}
+          <button type="button" class="comm-inbox-item" data-target="view-sent-{{ batch.id }}">
+            <span class="comm-inbox-item-icon comm-item-icon-sent">✓</span>
+            <span class="comm-inbox-item-copy">
+              <strong>{{ batch.department_name }}</strong>
+              <small>{{ batch.subject }}</small>
+              <small class="comm-inbox-item-meta">{{ (batch.sent_at or batch.created_at)[:10] }}</small>
+            </span>
+          </button>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="comm-inbox-empty-hint">Nenhum comunicado enviado recentemente.</p>
+        {% endif %}
+      </div>
+      {% if batches|length >= 12 %}<p class="comm-inbox-more-hint">Mostrando os mais recentes.</p>{% endif %}
+    </div>
+  </aside>
+
+  <div class="comm-inbox-detail">
+    <div class="comm-inbox-detail-inner">
+
+      <section class="comm-inbox-view" data-view="view-compose">
+        <div class="comm-view-heading">
+          <h2>Novo comunicado</h2>
+          <p>Escolha o período e a área para revisar a agenda, depois marque quem deve receber a programação.</p>
+        </div>
+
+        <form class="comm-edit-department-form" method="get" action="{{ url_for('communication_center') }}">
+          <input type="hidden" name="year" value="{{ year }}">
+          <input type="hidden" name="month" value="{{ month }}">
+          <label for="edit_department_id">Área para revisar participação e providências</label>
+          <select id="edit_department_id" name="edit_department_id" onchange="this.form.submit()" required>{% for d in departments %}<option value="{{ d.id }}" {% if d.id == selected_id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+          <span class="field-hint">Define quais eventos você está configurando abaixo; não define quem receberá o e-mail.</span>
+        </form>
+
+        <div class="comm-subheading"><h3>Quem deve receber a programação de {{ month_names[month-1] }}/{{ year }}?</h3><p>Marque uma ou mais áreas. Um comunicado individual será preparado para cada destinatário selecionado.</p></div>
+        <form method="post" action="{{ url_for('generate_communication_batch') }}" id="recipient-generation-form" class="recipient-generation-form">
+          <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+          <input type="hidden" name="year" value="{{ year }}">
+          <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="edit_department_id" value="{{ selected_id }}">
+          <div class="recipient-actions">
+            <div class="recipient-selection-hint"><strong id="recipient-selected-count">{{ selected_recipient_ids|length }}</strong> área(s) selecionada(s)</div>
+            <div class="recipient-action-buttons"><button type="button" class="btn btn-quiet btn-small" id="select-all-recipients">Selecionar todas</button><button type="button" class="btn btn-quiet btn-small" id="clear-recipients">Limpar seleção</button></div>
+          </div>
+          {% if departments %}
+          <div class="recipient-grid">
+            {% for d in departments %}
+            <label class="recipient-choice {% if d.id in selected_recipient_ids %}recipient-choice-selected{% endif %}" for="recipient-{{ d.id }}">
+              <input id="recipient-{{ d.id }}" type="checkbox" name="recipient_department_ids" value="{{ d.id }}" {% if d.id in selected_recipient_ids %}checked{% endif %}>
+              <span class="recipient-choice-mark" aria-hidden="true"></span>
+              <span class="recipient-choice-copy"><strong>{{ d.name }}</strong><small>{% if d.recipient_email %}{{ d.recipient_email }}{% else %}E-mail ainda não cadastrado{% endif %}</small></span>
+              {% if d.recipient_email %}<span class="recipient-email-status recipient-email-ready">E-mail cadastrado</span>{% else %}<span class="recipient-email-status recipient-email-missing">Pendente</span>{% endif %}
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state"><h3>Nenhuma área cadastrada</h3><p>Cadastre os departamentos e destinatários em Configurações, mais abaixo.</p></div>
+          {% endif %}
+          <div class="recipient-submit-row"><div><strong>Prévia personalizada por área</strong><p>Os rascunhos aparecerão à esquerda, em "Rascunhos". E-mails ausentes podem ser preenchidos na prévia antes do envio.</p></div><button class="btn btn-primary" type="submit" id="generate-selected-batches" {% if not departments or not events %}disabled{% endif %}>Gerar prévias selecionadas <span>→</span></button></div>
+        </form>
+
+        <div class="comm-subheading"><h3>Agenda do período</h3><p>{{ events|length }} evento(s) aprovado(s) ou em planejamento em {{ month_names[month-1]|lower }} de {{ year }}. A participação configurada abaixo é específica da área escolhida acima.</p></div>
+        {% if department and events %}
+        <div class="communication-event-list communication-event-list-compact">
+          {% for event in events %}
+          <article class="communication-event-card" id="event-{{ event.id }}">
+            <div class="communication-event-meta"><span class="communication-event-date">{{ event.start_date[8:10] }}/{{ event.start_date[5:7] }}/{{ event.start_date[:4] }}</span><span class="status-pill {{ status_classes.get(event.status, 'status-gray') }}">{{ status_labels.get(event.status, event.status) }}</span></div>
+            <h3>{{ event.title }}</h3>
+            <div class="communication-event-facts"><span><strong>Horário:</strong> {{ event.start_time or 'A confirmar' }}{% if event.end_time %} – {{ event.end_time }}{% endif %}</span><span><strong>Local:</strong> {{ event.venue or 'A confirmar' }}</span><span><strong>Responsável:</strong> {{ event.organizer_name or 'A confirmar' }}</span></div>
+            {% if event.involvement == 'acao' %}
+            <div class="department-task-summary">
+              <div class="department-task-summary-head"><strong>Acompanhamento da área</strong><span class="status-pill {% if event.task_status == 'concluida' %}status-green{% elif event.task_status in ['bloqueada','aguardando_terceiro'] or event.response_status in ['nao_podera_atender','precisa_alinhar'] %}status-amber{% else %}status-gray{% endif %}">{{ department_task_status_labels.get(event.task_status, event.task_status) }}</span></div>
+              <div class="department-task-summary-grid">
+                <span><small>Recebimento</small><strong>{% if event.receipt_confirmed_at %}Confirmado{% else %}Aguardando confirmação{% endif %}</strong>{% if event.receipt_confirmed_at %}<small>Por {{ event.receipt_confirmed_by or 'responsável não informado' }} · {{ event.receipt_confirmed_at[:16] }}</small>{% endif %}</span>
+                <span><small>Resposta da área</small><strong>{{ department_response_labels.get(event.response_status, event.response_status) }}</strong></span>
+                <span><small>Responsável</small><strong>{{ event.area_responsible or 'A definir' }}</strong></span>
+                <span><small>Prazo</small><strong>{% if event.due_date %}{{ event.due_date[8:10] }}/{{ event.due_date[5:7] }}/{{ event.due_date[:4] }}{% else %}Não definido{% endif %}</strong></span>
+              </div>
+              {% if event.response_by and event.responded_at %}<small class="area-response-notes">Atualizado por {{ event.response_by }} em {{ event.responded_at[:16] }}.</small>{% endif %}
+              {% if event.pending_reason %}<small class="department-pending-reason"><strong>Justificativa:</strong> {{ event.pending_reason }}</small>{% endif %}
+              {% if event.response_notes %}<small class="area-response-notes"><strong>Observações da área:</strong> {{ event.response_notes }}</small>{% endif %}
+              {% if event.response_token %}<a class="text-link department-task-public-link" target="_blank" rel="noopener" href="{{ url_for('department_response', token=event.response_token) }}">Abrir acompanhamento da área ↗</a>{% endif %}
+            </div>
+            {% endif %}
+            <details class="event-department-settings"><summary>Configurar participação e prazo de {{ department.name }}</summary>
+              <form class="communication-assignment-form" method="post" action="{{ url_for('save_event_department_update') }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="event_id" value="{{ event.id }}"><input type="hidden" name="department_id" value="{{ selected_id }}">
+                <div class="communication-assignment-fields department-task-assignment-fields">
+                  <div><label for="involvement-{{ event.id }}">Participação da área</label><select id="involvement-{{ event.id }}" name="involvement">{% for value, label in roles.items() %}<option value="{{ value }}" {% if event.involvement == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+                  <div><label for="area-responsible-{{ event.id }}">Responsável na área</label><input id="area-responsible-{{ event.id }}" name="area_responsible" value="{{ event.area_responsible or '' }}" maxlength="120" placeholder="Nome do responsável"></div>
+                  <div><label for="area-due-{{ event.id }}">Prazo da providência</label><input id="area-due-{{ event.id }}" name="due_date" type="date" value="{{ event.due_date or '' }}"></div>
+                  <div class="communication-details-field"><label for="details-{{ event.id }}">Providências que aparecerão no e-mail</label><input id="details-{{ event.id }}" name="details" value="{{ event.details or '' }}" placeholder="Ex.: testar áudio e vídeo; equipe deve chegar às 7h"></div>
+                  <div class="communication-notes-field"><label for="notes-{{ event.id }}">Observação interna (não será enviada)</label><input id="notes-{{ event.id }}" name="notes" value="{{ event.update_notes or '' }}" placeholder="Nota para o Setor de Eventos"></div>
+                  <button class="btn btn-secondary" type="submit">Salvar participação e prazo</button>
+                </div>
+              </form>
+            </details>
+            {% if event.update_history %}
+            <details class="department-task-history"><summary>Histórico de alterações ({{ event.update_history|length }} registro(s) recentes)</summary>
+              <ol class="department-task-history-list">
+                {% for history_item in event.update_history %}
+                <li><div><strong>{{ history_item.action }}</strong><small>{{ history_item.changed_at[:16] }} · {{ history_item.source }}{% if history_item.changed_by %} · {{ history_item.changed_by }}{% endif %}</small></div><p>{{ history_item.change_summary }}</p></li>
+                {% endfor %}
+              </ol>
+            </details>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state"><div class="empty-shape">▦</div><h3>Nenhum evento neste período</h3><p>Não há eventos aprovados ou em planejamento para o período selecionado. Confira o mês ou o status dos eventos.</p></div>
+        {% endif %}
+      </section>
+
+      {% for batch in draft_batches %}
+      <section class="comm-inbox-view" data-view="view-draft-{{ batch.id }}">
+        <div class="comm-view-heading">
+          <h2>{{ batch.subject }}</h2>
+          <p><strong>{{ batch.department_name }}</strong> · {{ batch.event_count }} evento(s) · {{ '%02d'|format(batch.period_month) }}/{{ batch.period_year }} <span class="status-pill status-amber">Rascunho</span></p>
+        </div>
+        <form class="communication-editor comm-editor-form" method="post" action="{{ url_for('update_communication_batch', batch_id=batch.id) }}">
           <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="return_to_center" value="1">
           <label for="recipient-{{ batch.id }}">Para</label><input id="recipient-{{ batch.id }}" type="email" name="recipient_email" value="{{ batch.recipient_email or '' }}" placeholder="Informe o e-mail oficial da área">
           <label for="subject-{{ batch.id }}">Assunto</label><input id="subject-{{ batch.id }}" name="subject" value="{{ batch.subject }}" required maxlength="250">
-          <label for="body-{{ batch.id }}">Mensagem</label><textarea id="body-{{ batch.id }}" name="body" rows="12" required>{{ batch.body }}</textarea>
+          <label for="body-{{ batch.id }}">Mensagem</label><textarea id="body-{{ batch.id }}" name="body" rows="14" required>{{ batch.body }}</textarea>
           <div class="communication-inline-actions"><button class="btn btn-secondary" type="submit">Salvar alterações</button><button class="btn btn-primary" type="submit" formaction="{{ url_for('send_communication_batch', batch_id=batch.id) }}">Salvar e enviar pelo sistema</button></div>
           <label class="confirmation-check communication-confirm-inline"><input type="checkbox" name="confirm_sent" value="yes"> Confirmo que já enviei esta mensagem pelo Outlook/e-mail institucional.</label>
           <button class="btn btn-quiet" type="submit" formaction="{{ url_for('register_manual_communication_batch', batch_id=batch.id) }}">Salvar e registrar envio manual</button>
@@ -139,28 +193,30 @@
           <div class="communication-draft-event"><span>{{ item.event_date[8:10] }}/{{ item.event_date[5:7] }}/{{ item.event_date[:4] }}</span><strong>{{ item.event_title }}</strong><small>{{ item.event_time or 'Horário a confirmar' }} · {{ item.event_venue or 'Local a confirmar' }}</small>{% if item.details %}<small>Providências: {{ item.details }}</small>{% endif %}</div>
           {% endfor %}
         </div>
-      </details>
-      <div class="communication-draft-footer"><a class="btn btn-quiet btn-small" href="{{ url_for('communication_batch_detail', batch_id=batch.id) }}">Abrir detalhes completos</a><span>O histórico será atualizado após o envio/registro.</span></div>
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-    {% if monthly_sent_count %}
-    <div class="empty-state"><div class="empty-shape">✓</div><h3>Os comunicados deste mês já foram enviados</h3><p>{{ monthly_sent_count }} comunicado(s) estão registrados como enviados. Consulte o histórico recente abaixo para abrir os registros.</p></div>
-    {% else %}
-    <div class="empty-state"><div class="empty-shape">✉</div><h3>Nenhuma prévia preparada para este mês</h3><p>Selecione os destinatários na etapa 2 e clique em “Gerar prévias selecionadas”. Todas as mensagens aparecerão aqui.</p></div>
-    {% endif %}
-  {% endif %}
-</section>
+        <div class="communication-draft-footer"><a class="btn btn-quiet btn-small" href="{{ url_for('communication_batch_detail', batch_id=batch.id) }}">Abrir detalhes completos</a></div>
+      </section>
+      {% endfor %}
 
-<section class="panel communication-history-panel">
-  <details class="communication-collapsible">
-    <summary><span><strong>Histórico recente de comunicados</strong><small>Consulte rascunhos e envios registrados anteriormente.</small></span><span class="communication-step-number">{{ batches|length }} registros</span></summary>
-    {% if batches %}<div class="table-wrap"><table class="data-table"><thead><tr><th>Comunicado</th><th>Área</th><th>Destinatário</th><th>Status</th><th>Criação</th><th></th></tr></thead><tbody>
-      {% for batch in batches %}<tr><td><a class="table-main" href="{{ url_for('communication_batch_detail', batch_id=batch.id) }}">{{ batch.subject }}</a><span class="table-sub">Período: {{ '%02d'|format(batch.period_month) }}/{{ batch.period_year }}</span></td><td>{{ batch.department_name }}</td><td>{{ batch.recipient_email or 'E-mail pendente' }}</td><td><span class="status-pill {% if batch.status == 'enviado' %}status-green{% else %}status-amber{% endif %}">{{ 'Enviado' if batch.status == 'enviado' else 'Rascunho' }}</span></td><td>{{ batch.created_at[:16] }}</td><td><a class="row-arrow" href="{{ url_for('communication_batch_detail', batch_id=batch.id) }}">→</a></td></tr>{% endfor %}
-    </tbody></table></div>{% else %}<div class="empty-state"><h3>Nenhum comunicado registrado</h3></div>{% endif %}
-  </details>
-</section>
+      {% for batch in sent_batches %}
+      <section class="comm-inbox-view" data-view="view-sent-{{ batch.id }}">
+        <div class="comm-view-heading">
+          <h2>{{ batch.subject }}</h2>
+          <p><strong>{{ batch.department_name }}</strong> · {{ '%02d'|format(batch.period_month) }}/{{ batch.period_year }} <span class="status-pill status-green">Enviado</span></p>
+        </div>
+        <div class="comm-sent-meta">
+          <span><small>Para</small><strong>{{ batch.recipient_email or 'E-mail não registrado' }}</strong></span>
+          <span><small>Enviado em</small><strong>{{ (batch.sent_at or batch.created_at)[:16] }}</strong></span>
+          {% if batch.sent_by %}<span><small>Por</small><strong>{{ batch.sent_by }}</strong></span>{% endif %}
+          {% if batch.send_method %}<span><small>Método</small><strong>{{ 'Sistema (SMTP)' if batch.send_method == 'sistema' else 'Registro manual' }}</strong></span>{% endif %}
+        </div>
+        <div class="comm-sent-body">{{ batch.body }}</div>
+        <div class="communication-draft-footer"><a class="btn btn-quiet btn-small" href="{{ url_for('communication_batch_detail', batch_id=batch.id) }}">Abrir detalhes completos</a></div>
+      </section>
+      {% endfor %}
+
+    </div>
+  </div>
+</div>
 
 {% if session.get('user_role') == 'admin' %}
 <section class="panel department-admin-panel communication-admin-panel">
@@ -201,6 +257,27 @@
   document.getElementById('clear-recipients')?.addEventListener('click', () => { checkboxes.forEach((input) => { input.checked = false; }); refreshRecipients(); });
   checkboxes.forEach((input) => input.addEventListener('change', refreshRecipients));
   refreshRecipients();
+})();
+
+(function () {
+  const items = Array.from(document.querySelectorAll('.comm-inbox-item'));
+  const composeBtn = document.getElementById('comm-compose-trigger');
+  const views = Array.from(document.querySelectorAll('.comm-inbox-view'));
+  const triggers = items.concat(composeBtn ? [composeBtn] : []);
+
+  function activate(target) {
+    views.forEach((view) => view.classList.toggle('is-active', view.dataset.view === target));
+    triggers.forEach((el) => el.classList.toggle('is-active', el.dataset.target === target));
+    const activeView = document.querySelector('.comm-inbox-view[data-view="' + target + '"]');
+    if (activeView) activeView.scrollTop = 0;
+    const detail = document.querySelector('.comm-inbox-detail');
+    if (detail) detail.scrollTop = 0;
+  }
+
+  triggers.forEach((el) => el.addEventListener('click', () => activate(el.dataset.target)));
+
+  const firstDraft = document.querySelector('.comm-inbox-item[data-target^="view-draft-"]');
+  activate(firstDraft ? firstDraft.dataset.target : 'view-compose');
 })();
 </script>
 {% endblock %}
