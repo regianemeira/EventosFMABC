@@ -17,8 +17,6 @@
 {% include '_event_tabs.html' %}
 <input type="hidden" id="ck-csrf" value="{{ csrf_token }}">
 <datalist id="ck-people">{% for p in people %}<option value="{{ p }}">{% endfor %}</datalist>
-<datalist id="ck-categories">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
-
 {% if not tasks %}
 <section class="panel ck-empty-state">
   <h2>Este evento ainda não tem checklist</h2>
@@ -93,7 +91,12 @@
       <h3 class="ck-section-title">Nova tarefa</h3>
       <form method="post" action="{{ url_for('add_task', event_id=event.id) }}" class="ck-new-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <label>Nome da tarefa<input id="ck-new-title" name="title" required maxlength="240" placeholder="Descreva a tarefa"></label>
-        <div class="ck-two"><label>Prazo<input type="date" name="due_date"></label><label>Etapa<input name="category" list="ck-categories" value="Organização" maxlength="80"></label></div>
+        <div class="ck-two"><label>Prazo<input type="date" name="due_date"></label><label>Etapa<select class="ck-category-select" name="category" data-new-for="ck-cat-new-novo">
+          {% for c in categories %}<option value="{{ c }}" {% if c == 'Organização' %}selected{% endif %}>{{ c }}</option>{% endfor %}
+          {% if 'Organização' not in categories %}<option value="Organização" selected>Organização</option>{% endif %}
+          <option value="__nova__">+ Nova etapa…</option>
+        </select></label></div>
+        <input type="text" class="ck-category-new" id="ck-cat-new-novo" placeholder="Nome da nova etapa" maxlength="80" hidden>
         <label>Responsável<input name="assigned_to" list="ck-people" maxlength="180" placeholder="Pessoa, área ou e-mail"></label>
         <label>O que fazer<textarea name="description" rows="2" maxlength="1500"></textarea></label>
         <button class="btn btn-primary" type="submit">Adicionar tarefa</button>
@@ -125,7 +128,12 @@
           <label>Prazo<input type="date" name="due_date" value="{{ t.due_date or '' }}"><small class="ck-relative">{{ t.relative }}</small></label>
           <label>Responsável<input name="assigned_to" list="ck-people" value="{{ t.who }}" maxlength="180" placeholder="Pessoa, área ou e-mail">{% if me %}<button type="button" class="ck-assign-me" data-me="{{ me }}">Atribuir a mim</button>{% endif %}</label>
         </div>
-        <label>Etapa<input name="category" list="ck-categories" value="{{ t.category or '' }}" maxlength="80"></label>
+        <label>Etapa<select class="ck-category-select" name="category" data-new-for="ck-cat-new-{{ t.id }}">
+          {% for c in categories %}<option value="{{ c }}" {% if t.category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+          {% if t.category and t.category not in categories %}<option value="{{ t.category }}" selected>{{ t.category }}</option>{% endif %}
+          <option value="__nova__">+ Nova etapa…</option>
+        </select></label>
+        <input type="text" class="ck-category-new" id="ck-cat-new-{{ t.id }}" placeholder="Nome da nova etapa" maxlength="80" hidden>
         <label>O que fazer<textarea name="description" rows="3" maxlength="1500" placeholder="Orientações para executar esta tarefa">{{ t.description or '' }}</textarea></label>
         <input type="hidden" name="notes" value="{{ t.notes or '' }}">
         {% set fields = task_fields_by_template.get(t.template_id, []) %}
@@ -205,6 +213,34 @@
     input.value = b.dataset.me;
     input.dispatchEvent(new Event('change', {bubbles: true}));
   }));
+  document.querySelectorAll('.ck-category-select').forEach(sel => {
+    const newInput = document.getElementById(sel.dataset.newFor);
+    if (!newInput) return;
+    sel.dataset.prev = sel.value === '__nova__' ? '' : sel.value;
+    function commitNew() {
+      const name = newInput.value.trim().slice(0, 80);
+      if (name) {
+        let opt = Array.from(sel.options).find(o => o.value.toLowerCase() === name.toLowerCase() && o.value !== '__nova__');
+        if (!opt) {
+          opt = document.createElement('option'); opt.value = name; opt.textContent = name;
+          sel.insertBefore(opt, sel.querySelector('option[value="__nova__"]'));
+        }
+        sel.value = opt.value; sel.dataset.prev = opt.value;
+      } else {
+        sel.value = sel.dataset.prev || (sel.options[0] ? sel.options[0].value : '');
+      }
+      newInput.hidden = true;
+      sel.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    sel.addEventListener('change', e => {
+      if (sel.value === '__nova__') {
+        e.stopPropagation(); // ainda não é um valor válido pra salvar — só abre o campo de texto
+        newInput.hidden = false; newInput.value = ''; newInput.focus();
+      } else { sel.dataset.prev = sel.value; }
+    });
+    newInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitNew(); } });
+    newInput.addEventListener('blur', commitNew);
+  });
   document.getElementById('ck-new-task').addEventListener('click', () => openDetail('novo', true));
   document.getElementById('ck-panel-close').addEventListener('click', () => panel.classList.remove('is-open'));
   const match = location.hash.match(/^#tarefa-(\d+)$/);
