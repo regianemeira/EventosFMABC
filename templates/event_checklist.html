@@ -58,6 +58,7 @@
           <li class="ck-row {% if t.done %}is-done{% endif %}" id="tarefa-{{ t.id }}" data-task="{{ t.id }}" data-bucket="{{ t.bucket }}" data-noowner="{{ 0 if (t.who or t.done) else 1 }}" data-mine="{{ 1 if (t.mine and not t.done) else 0 }}" data-search="{{ (t.title ~ ' ' ~ (t.category or '') ~ ' ' ~ (t.who or ''))|lower }}">
             <input class="ck-select" type="checkbox" name="task_ids" value="{{ t.id }}" form="ck-bulk-form" aria-label="Selecionar: {{ t.title }}">
             <button type="button" class="ck-check" data-toggle-url="{{ url_for('toggle_task', event_id=event.id, task_id=t.id) }}" aria-label="{{ 'Reabrir tarefa' if t.done else 'Marcar como concluída' }}: {{ t.title }}" aria-pressed="{{ 'true' if t.done else 'false' }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button>
+            <button type="button" class="ck-na {% if t.status == 'nao_se_aplica' %}is-active{% endif %}" data-na-url="{{ url_for('toggle_task_na', event_id=event.id, task_id=t.id) }}" aria-label="{{ 'Reabrir tarefa' if t.status == 'nao_se_aplica' else 'Não se aplica a este evento' }}: {{ t.title }}" aria-pressed="{{ 'true' if t.status == 'nao_se_aplica' else 'false' }}" title="{{ 'Reabrir tarefa' if t.status == 'nao_se_aplica' else 'Não se aplica a este evento — remove da lista sem precisar concluir' }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="5.8" y1="18.2" x2="18.2" y2="5.8"></line></svg></button>
             <button type="button" class="ck-open" data-open="{{ t.id }}">
               <span class="ck-title">{{ t.title }}</span>
               <span class="ck-meta"><span class="ck-cat">{{ t.category or 'Geral' }}</span><span class="ck-status ck-status-{{ t.status }}" {% if not t.show_status %}hidden{% endif %}>{{ t.status_label }}</span><span class="ck-notes" {% if not t.notes_count %}hidden{% endif %}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"></path></svg><span class="ck-notes-count">{{ t.notes_count }}</span></span></span>
@@ -234,6 +235,10 @@
     avatar.setAttribute('aria-label', (hasWho ? 'Responsável: ' + t.who + '. Alterar: ' : 'Atribuir responsável: ') + t.title);
     const check = row.querySelector('.ck-check'); check.setAttribute('aria-pressed', t.done ? 'true' : 'false');
     check.setAttribute('aria-label', (t.done ? 'Reabrir tarefa: ' : 'Marcar como concluída: ') + t.title);
+    const na = row.querySelector('.ck-na'); const isNa = t.status === 'nao_se_aplica';
+    na.classList.toggle('is-active', isNa); na.setAttribute('aria-pressed', isNa ? 'true' : 'false');
+    na.title = isNa ? 'Reabrir tarefa' : 'Não se aplica a este evento — remove da lista sem precisar concluir';
+    na.setAttribute('aria-label', (isNa ? 'Reabrir tarefa: ' : 'Não se aplica a este evento: ') + t.title);
     const detail = document.querySelector('.ck-detail[data-detail="' + t.id + '"]');
     if (detail) {
       const radio = detail.querySelector('input[name="status"][value="' + t.status + '"]'); if (radio) radio.checked = true;
@@ -254,6 +259,14 @@
   document.querySelectorAll('.ck-check').forEach(btn => btn.addEventListener('click', async () => {
     btn.disabled = true;
     const data = await post(btn.dataset.toggleUrl, new FormData());
+    btn.disabled = false;
+    if (data.ok) { applyTask(data.task); applyCounts(data.counts); applyFilters(); }
+    else alert(data.message || 'Não foi possível atualizar a tarefa.');
+  }));
+
+  document.querySelectorAll('.ck-na').forEach(btn => btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    const data = await post(btn.dataset.naUrl, new FormData());
     btn.disabled = false;
     if (data.ok) { applyTask(data.task); applyCounts(data.counts); applyFilters(); }
     else alert(data.message || 'Não foi possível atualizar a tarefa.');
