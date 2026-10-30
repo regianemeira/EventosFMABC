@@ -423,7 +423,7 @@ def consolidated_checklist():
     responsible = request.args.get("responsavel", "").strip()
     search = request.args.get("q", "").strip()
     period = request.args.get("prazo", "").strip()
-    sql = "SELECT t.*, e.title AS event_title, e.protocol AS event_protocol, e.start_date AS event_date FROM tasks t JOIN events e ON e.id=t.event_id WHERE 1=1"
+    sql = "SELECT t.*, e.title AS event_title, e.protocol AS event_protocol, e.start_date AS event_date FROM tasks t JOIN events e ON e.id=t.event_id WHERE e.status NOT IN ('cancelado','realizado','encerrado')"
     params = []
     if event_id:
         sql += " AND e.id = ?"; params.append(event_id)
@@ -442,7 +442,7 @@ def consolidated_checklist():
     tasks = [dict(r) for r in db.execute(sql, params).fetchall()]
     for task in tasks:
         task['overdue'] = bool(task.get('due_date') and task['due_date'] < today and task['status'] not in TASK_DONE_STATUSES)
-    events = db.execute("SELECT id,title,protocol FROM events WHERE status <> 'cancelado' ORDER BY start_date DESC").fetchall()
+    events = db.execute("SELECT id,title,protocol FROM events WHERE status NOT IN ('cancelado','realizado','encerrado') ORDER BY start_date DESC").fetchall()
     people = db.execute("SELECT DISTINCT assigned_to FROM tasks WHERE assigned_to IS NOT NULL AND TRIM(assigned_to)<>'' ORDER BY assigned_to").fetchall()
     counts = {'total': len(tasks), 'pendentes': sum(1 for t in tasks if t['status'] not in TASK_DONE_STATUSES), 'atrasadas': sum(1 for t in tasks if t['overdue']), 'concluidas': sum(1 for t in tasks if t['status'] == 'concluida')}
     return render_template('checklist_consolidado.html', tasks=tasks, events=events, people=people, selected_event=event_id, selected_status=status, selected_responsible=responsible, selected_period=period, search=search, counts=counts, task_statuses=TASK_STATUSES)
