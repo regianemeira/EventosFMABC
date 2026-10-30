@@ -62,6 +62,26 @@ def toggle_task(event_id, task_id):
     return redirect(url_for("event_checklist", event_id=event_id) + f"#tarefa-{task_id}")
 
 
+@app.post("/eventos/<int:event_id>/tarefas/<int:task_id>/nao-se-aplica")
+@login_required
+def toggle_task_na(event_id, task_id):
+    """Marca/desmarca uma tarefa como 'Não se aplica' com um clique, sem precisar concluí-la."""
+    event = get_event_or_404(event_id)
+    db = get_db()
+    task = db.execute("SELECT * FROM tasks WHERE id = ? AND event_id = ?", (task_id, event_id)).fetchone()
+    if not task:
+        abort(404)
+    reopen = task["status"] == "nao_se_aplica"
+    new_status = "pendente" if reopen else "nao_se_aplica"
+    db.execute("UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?", (new_status, None, task_id))
+    db.execute("UPDATE events SET updated_at = ? WHERE id = ?", (now_iso(), event_id))
+    db.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        updated = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+        return jsonify({"ok": True, "task": _task_json(updated, event), "counts": checklist_counts(db, event, session.get("user_email"))})
+    return redirect(url_for("event_checklist", event_id=event_id) + f"#tarefa-{task_id}")
+
+
 def _task_json(task, event) -> dict:
     view = task_view(task, checklist_periods(event), session.get("user_email"))
     return {"id": task["id"], "title": task["title"], "category": task["category"], "status": task["status"],
