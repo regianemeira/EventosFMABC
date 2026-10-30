@@ -350,7 +350,7 @@ def add_task(event_id):
         status = "pendente"
     db = get_db()
     next_order = db.execute("SELECT COALESCE(MAX(sort_order), 0) + 1 n FROM tasks WHERE event_id = ?", (event_id,)).fetchone()["n"]
-    db.execute(
+    cursor = db.execute(
         """INSERT INTO tasks(event_id, title, category, due_date, status, assigned_to, description, notes, sort_order, created_at, completed_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (event_id, title[:240], request.form.get("category", "Organização").strip()[:80] or "Organização", due, status,
@@ -358,7 +358,7 @@ def add_task(event_id):
          request.form.get("description", "").strip()[:1500] or None,
          request.form.get("notes", "").strip()[:3000] or None, next_order, now_iso(), now_iso() if status == "concluida" else None),
     )
-    new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    new_id = cursor.lastrowid
     db.execute("UPDATE events SET updated_at = ? WHERE id = ?", (now_iso(), event_id))
     db.commit()
     flash("Tarefa adicionada ao checklist.", "success")
