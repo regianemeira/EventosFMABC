@@ -567,4 +567,16 @@ def checklist_templates():
                            trigger_values=trigger_values, fields_by_template=fields_by_template, field_types=TASK_FIELD_TYPES)
 
 
+@app.get("/checklist-prazos")
+@login_required
+def checklist_deadlines_guide():
+    """Consulta somente leitura dos prazos padrão de cada tarefa do checklist — útil para novos integrantes da equipe."""
+    db = get_db()
+    trigger_types = {"always": "Todos os eventos", "support": "Serviço de apoio", "item": "Item solicitado", "mode": "Modalidade", "category": "Categoria do evento"}
+    templates = db.execute(
+        "SELECT * FROM task_templates WHERE active = 1 ORDER BY category, due_offset, sort_order, id"
+    ).fetchall()
+    return render_template("checklist_deadlines.html", templates=templates, trigger_types=trigger_types)
+
+
 __all__ = [name for name in dict(globals()) if not name.startswith("__")]
