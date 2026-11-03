@@ -1075,3 +1075,77 @@ html.nav-collapsed .logout-button{justify-content:center!important;width:48px;pa
 .dl-offset-pill.is-before{background:#fff4d6;color:#8a5a00}
 .dl-offset-pill.is-after{background:#e3e5f0;color:#3d4260}
 .dl-offset-pill.is-day{background:#e7f4eb;color:#276b48}
+
+/* Mensagem enviada pelo solicitante via /acompanhar — destaca na linha do tempo interna */
+.timeline-mensagem_solicitante{background:#fff8ec;border-radius:0 8px 8px 0;padding:10px 12px 10px 18px}
+.timeline-mensagem_solicitante::before{background:#d68910}
+.timeline-mensagem_solicitante .timeline-kind{color:#8a5a00}
+.timeline-mensagem_equipe{background:#eef1fb;border-radius:0 8px 8px 0;padding:10px 12px 10px 18px}
+.timeline-mensagem_equipe::before{background:var(--navy)}
+.timeline-mensagem_equipe .timeline-kind{color:var(--navy)}
+
+/* Página pública "Acompanhar solicitação" — progresso do checklist e mensagem do solicitante */
+.tracking-wrap-wide{max-width:680px}
+.tracking-checklist{margin:20px 0;padding:17px 18px;border-radius:12px;background:#fbfdfb;border:1px solid #dce9e0}
+.tracking-checklist-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tracking-checklist-head h3{margin:0;font-size:calc(12px * var(--fmabc-font-scale,1));color:var(--navy)}
+.tracking-checklist-pct{font-size:calc(15px * var(--fmabc-font-scale,1));font-weight:800;color:var(--green-dark)}
+.tracking-progress-track{height:9px;border-radius:5px;background:#e4ece6;overflow:hidden;margin-top:10px}
+.tracking-progress-bar{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--green),var(--green-dark))}
+.tracking-checklist-sub{margin:8px 0 14px;font-size:calc(10px * var(--fmabc-font-scale,1));color:#5b6b7c}
+.tracking-stages{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.tracking-stage{display:flex;align-items:center;gap:10px}
+.tracking-stage-name{flex:0 0 128px;font-size:calc(10px * var(--fmabc-font-scale,1));font-weight:650;color:var(--ink)}
+.tracking-stage-track{flex:1;min-width:0;height:7px;border-radius:4px;background:#e4ece6;overflow:hidden}
+.tracking-stage-bar{display:block;height:100%;border-radius:4px;background:#8aa99c}
+.tracking-stage.is-done .tracking-stage-bar{background:var(--green-dark)}
+.tracking-stage-count{flex:0 0 36px;text-align:right;font-size:calc(9.5px * var(--fmabc-font-scale,1));font-weight:700;color:#5b6b7c}
+.tracking-stage.is-done .tracking-stage-count{color:var(--green-dark)}
+.tracking-message-box{margin-top:18px;padding-top:17px;border-top:1px solid #e8efea}
+.tracking-message-box h3{margin:0 0 4px;font-size:calc(12px * var(--fmabc-font-scale,1));color:var(--navy)}
+.tracking-message-hint{margin:0 0 11px;font-size:calc(10px * var(--fmabc-font-scale,1));color:#5b6b7c;line-height:1.5}
+.tracking-message-form{display:flex;flex-direction:column;gap:10px}
+.tracking-message-form textarea{border:1px solid #dfe6ed;border-radius:10px;padding:11px 13px;font:inherit;font-size:calc(11px * var(--fmabc-font-scale,1));color:var(--ink);resize:vertical;min-height:70px}
+.tracking-message-form textarea:focus{border-color:#78ae8d;box-shadow:0 0 0 3px #37716615;outline:none}
+.tracking-message-form .btn{align-self:flex-start}
+@media(max-width:650px){
+  .tracking-wrap-wide{max-width:none}
+  .tracking-stage-name{flex-basis:96px}
+  .tracking-checklist{padding:14px}
+}
+
+/* Chat interno do evento (equipe <-> solicitante) — view da equipe em /eventos/<id>/mensagens */
+.chat-panel{max-width:760px}
+.chat-thread{list-style:none;margin:0 0 20px;padding:0;display:flex;flex-direction:column;gap:12px;max-height:56vh;overflow-y:auto;padding-right:2px}
+.chat-msg{display:flex;max-width:82%}
+.chat-msg-equipe{align-self:flex-end}
+.chat-msg-solicitante{align-self:flex-start}
+.chat-bubble{border-radius:14px;padding:11px 14px;font-size:calc(11.5px * var(--fmabc-font-scale,1));line-height:1.5}
+.chat-msg-equipe .chat-bubble{background:var(--navy);color:#fff;border-radius:14px 14px 3px 14px}
+.chat-msg-solicitante .chat-bubble{background:var(--soft-green);color:var(--ink);border-radius:14px 14px 14px 3px}
+.chat-bubble p{margin:0;white-space:pre-wrap;word-break:break-word}
+.chat-bubble-head{display:flex;align-items:baseline;gap:7px;margin-bottom:4px;font-size:calc(9.5px * var(--fmabc-font-scale,1));letter-spacing:.03em;text-transform:uppercase;font-weight:700;opacity:.85}
+.chat-msg-equipe .chat-bubble-head{color:#dfe6f7}
+.chat-msg-solicitante .chat-bubble-head{color:var(--green-dark)}
+.chat-sender-name{font-weight:600;text-transform:none;letter-spacing:0}
+.chat-time{margin-left:auto;font-weight:600;white-space:nowrap}
+.chat-reply-form{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px}
+.chat-reply-form textarea{border:1px solid #dfe6ed;border-radius:10px;padding:11px 13px;font:inherit;font-size:calc(11.5px * var(--fmabc-font-scale,1));color:var(--ink);resize:vertical;min-height:72px}
+.chat-reply-form textarea:focus{border-color:#78ae8d;box-shadow:0 0 0 3px #37716615;outline:none}
+.chat-reply-form .btn{align-self:flex-start}
+.chat-hint{margin:12px 0 0;font-size:calc(9.5px * var(--fmabc-font-scale,1));color:#5b6b7c}
+@media(max-width:650px){.chat-msg{max-width:94%}.chat-thread{max-height:none}}
+
+/* Chat na página pública "Acompanhar solicitação" — mesma conversa, do ponto de vista do solicitante */
+.tracking-thread{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:11px;max-height:50vh;overflow-y:auto;padding-right:2px}
+.tracking-msg{display:flex;max-width:88%}
+.tracking-msg-solicitante{align-self:flex-end}
+.tracking-msg-equipe{align-self:flex-start}
+.tracking-bubble{border-radius:14px;padding:10px 13px;font-size:calc(10.5px * var(--fmabc-font-scale,1));line-height:1.5}
+.tracking-msg-solicitante .tracking-bubble{background:var(--soft-green);color:var(--ink);border-radius:14px 14px 3px 14px}
+.tracking-msg-equipe .tracking-bubble{background:var(--soft-blue);color:var(--ink);border-radius:14px 14px 14px 3px}
+.tracking-bubble p{margin:0;white-space:pre-wrap;word-break:break-word}
+.tracking-bubble-head{display:flex;align-items:baseline;gap:6px;margin-bottom:3px;font-size:calc(9px * var(--fmabc-font-scale,1));letter-spacing:.03em;text-transform:uppercase;font-weight:700;color:#5b6b7c}
+.tracking-bubble-time{margin-left:auto;font-weight:600;white-space:nowrap}
+.tracking-empty-thread{margin:0 0 16px;font-size:calc(10px * var(--fmabc-font-scale,1));color:#5b6b7c}
+@media(max-width:650px){.tracking-msg{max-width:96%}.tracking-thread{max-height:none}}
