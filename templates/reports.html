@@ -4,6 +4,23 @@
 {% with section='relatorios' %}{% include '_section_tabs.html' %}{% endwith %}
 <div class="page-heading heading-row reports-heading"><div><p>Escolha um modelo de relatório abaixo para gerar uma visão pronta para a reitoria — ou use a lista detalhada para consultar evento a evento.</p></div></div>
 
+{% set report_period = ('Todos os anos' if (modelo == 'eventos_periodo' and granularidade == 'ano') else 'Ano ' ~ year) %}
+{% set report_filters = [] %}
+{% if department_filter %}{% set _ = report_filters.append('Setor: ' ~ department_filter) %}{% endif %}
+{% if event_type_filter %}{% set _ = report_filters.append('Categoria: ' ~ event_type_filter) %}{% endif %}
+{% if status_filter and status_filter not in ['todos', 'todas'] %}{% set _ = report_filters.append('Situação: ' ~ (status_labels.get(status_filter) or incident_statuses.get(status_filter) or status_filter)) %}{% endif %}
+<div class="report-print-header">
+  <img class="report-print-logo" src="{{ url_for('static', filename='logo-fmabc.png') }}" alt="FMABC Centro Universitário">
+  <div class="report-print-titles">
+    <strong>{{ models[modelo].label }}</strong>
+    <span>{{ models[modelo].description }}</span>
+  </div>
+  <div class="report-print-meta">
+    <span>{{ report_period }}{% if report_filters %} · {{ report_filters|join(' · ') }}{% endif %}</span>
+    <span>Gerado em <span id="report-print-generated"></span></span>
+  </div>
+</div>
+
 <section class="report-model-picker" aria-label="Modelos de relatório">
   {% for key, m in models.items() %}
   <a class="report-model-card {% if key == modelo %}is-active{% endif %}" href="{{ url_for('event_reports', modelo=key, ano=year) }}">
@@ -118,5 +135,49 @@
 
 {% endif %}
 
-<style>@media print{.sidebar,.topbar,.site-footer,.report-filter-panel,.report-actions-row,.report-model-picker,.flash-stack{display:none!important}.app-shell{display:block!important}.main-area{width:100%!important}.page-content{padding:0!important;max-width:none!important}.reports-heading{margin:0 0 10px!important}.report-summary-grid,.report-kpi-grid{grid-template-columns:repeat(3,1fr)!important;gap:6px!important}.report-stat-card{box-shadow:none!important;padding:8px!important;break-inside:avoid}.panel{box-shadow:none!important;border:1px solid #bbb!important}.annual-report-table,.report-result-panel .data-table{font-size:9px!important}.annual-report-table th,.annual-report-table td,.report-result-panel .data-table th,.report-result-panel .data-table td{padding:5px!important}.annual-report-table tr{break-inside:avoid}.report-footnote{font-size:9px!important}}</style>
+<div class="report-print-footer">Centro Universitário FMABC · Gestão de Eventos · Relatório gerado automaticamente pelo sistema — os dados refletem a situação no momento da geração.</div>
+
+<style>
+.report-print-header{display:none}
+.report-print-footer{display:none}
+@media print{
+  @page{size:A4{% if modelo == 'detalhado' %} landscape{% endif %};margin:14mm 12mm}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  .sidebar,.topbar,.site-footer,.report-filter-panel,.report-actions-row,.report-model-picker,.flash-stack,.event-tabs,.section-header{display:none!important}
+  .app-shell{display:block!important}
+  .main-area{margin-left:0!important;width:100%!important}
+  .page-content{padding:0!important;max-width:none!important}
+  .reports-heading{display:none!important}
+  .report-print-header{display:flex!important;align-items:center;gap:14px;padding:0 0 12px;margin:0 0 16px;border-bottom:2px solid var(--green-dark,#2c5e55)}
+  .report-print-logo{height:42px;width:auto;flex:0 0 auto}
+  .report-print-titles{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+  .report-print-titles strong{font-size:15px;color:var(--navy,#4b5172)}
+  .report-print-titles span{font-size:10px;color:#5b6b7c}
+  .report-print-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:9px;color:#5b6b7c;text-align:right;white-space:nowrap}
+  .report-print-footer{display:block!important;margin-top:16px;padding-top:8px;border-top:1px solid #d7e0e8;font-size:8px;color:#8a97a3;break-inside:avoid}
+  .report-summary-grid,.report-kpi-grid{grid-template-columns:repeat(3,1fr)!important;gap:6px!important;break-inside:avoid}
+  .report-stat-card{box-shadow:none!important;padding:8px!important;break-inside:avoid;border:1px solid #c9d3cc!important}
+  .panel{box-shadow:none!important;border:1px solid #bbb!important}
+  .panel-heading{break-after:avoid}
+  .report-chart{break-inside:avoid;background:#fbfdfb!important;padding:10px 12px!important;margin:4px 0 14px!important}
+  .report-chart-bar{background:var(--green-dark,#2c5e55)!important;background-image:none!important}
+  .report-chart-track{background:#e4ece6!important}
+  .annual-report-table,.report-result-panel .data-table{font-size:9px!important}
+  .annual-report-table th,.annual-report-table td,.report-result-panel .data-table th,.report-result-panel .data-table td{padding:5px!important}
+  .data-table thead{display:table-header-group}
+  .annual-report-table tr,.report-result-panel .data-table tr{break-inside:avoid}
+  .annual-report-table tbody tr:nth-child(even) td,.report-result-panel .data-table tbody tr:nth-child(even) td{background:#f5f8f6!important}
+  .report-footnote{font-size:9px!important;break-inside:avoid}
+  .status-pill{border:1px solid rgba(0,0,0,.15)}
+}
+</style>
+<script>
+(function () {
+  var el = document.getElementById('report-print-generated');
+  if (!el) return;
+  var now = new Date();
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  el.textContent = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + now.getFullYear() + ' às ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+})();
+</script>
 {% endblock %}
