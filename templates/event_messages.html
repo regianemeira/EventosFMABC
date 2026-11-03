@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Mensagens — {{ event.title }}{% endblock %}
+{% block content %}
+<div class="detail-back"><a class="back-link" href="{{ url_for('event_detail',event_id=event.id) }}">← Voltar ao evento</a><span class="detail-protocol">{{ event.protocol }}</span></div>
+<div class="page-heading heading-row">
+  <div>
+    <div class="eyebrow">CHAT DO EVENTO</div>
+    <h1>Mensagens com o solicitante</h1>
+    <p>{{ event.title }} · Converse com {{ event.organizer_name or 'o solicitante' }} sobre esta solicitação. Ele(a) recebe e responde pela página pública "Acompanhar solicitação", usando o protocolo {{ event.protocol }}.</p>
+  </div>
+  <a class="btn btn-secondary" href="{{ url_for('event_detail',event_id=event.id) }}">Visão do evento</a>
+</div>
+{% include '_event_tabs.html' %}
+
+<section class="panel chat-panel">
+  <div class="panel-heading"><div><h2>Conversa</h2><p>{{ messages|length }} mensage{{ 'm' if messages|length == 1 else 'ns' }} nesta solicitação</p></div></div>
+
+  {% if not messages %}
+  <div class="empty-state compact">
+    <h3>Nenhuma mensagem ainda</h3>
+    <p>Quando o solicitante enviar uma observação pela página de acompanhamento, ela aparece aqui. Você também pode iniciar a conversa escrevendo abaixo.</p>
+  </div>
+  {% else %}
+  <ul class="chat-thread" aria-label="Histórico de mensagens">
+    {% for m in messages %}
+    <li class="chat-msg chat-msg-{{ m.sender_type }}">
+      <div class="chat-bubble">
+        <div class="chat-bubble-head"><strong>{{ sender_labels.get(m.sender_type, m.sender_type) }}</strong>{% if m.sender_type == 'equipe' and m.sender_name %} <span class="chat-sender-name">({{ m.sender_name }})</span>{% endif %}<span class="chat-time">{{ m.created_at[:16]|replace('T',' ') }}</span></div>
+        <p class="preserve-lines">{{ m.body }}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <form method="post" class="chat-reply-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <label class="sr-only" for="chat-reply">Responder ao solicitante</label>
+    <textarea id="chat-reply" name="message" rows="3" maxlength="4000" required placeholder="Escreva sua resposta ao solicitante..."></textarea>
+    <button class="btn btn-primary" type="submit">Enviar resposta <span>→</span></button>
+  </form>
+  <p class="chat-hint">A resposta fica visível para {{ event.organizer_name or 'o solicitante' }} na página de acompanhamento{% if event.contact_email or event.organizer_email %} e um aviso por e-mail é enviado para {{ event.contact_email or event.organizer_email }}{% endif %}.</p>
+</section>
+{% endblock %}
