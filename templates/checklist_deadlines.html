@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Guia de prazos do checklist{% endblock %}
+{% block content %}
+{% with section='checklists' %}{% include '_section_tabs.html' %}{% endwith %}
+{% macro offset_text(n) -%}{% if n < 0 %}{{ n|abs }} dia{{ 's' if n != -1 }} antes do evento{% elif n > 0 %}{{ n }} dia{{ 's' if n != 1 }} depois do evento{% else %}No dia do evento{% endif %}{%- endmacro %}
+
+<div class="tpl-intro dl-intro">
+  <p>Prazo padrão de cada tarefa do checklist automático, contado a partir da data do evento — útil para quem está começando no sistema entender quando cada etapa deve estar pronta. As tarefas marcadas como condicionais só entram no checklist quando aquele apoio, item, modalidade ou categoria é selecionado na solicitação.
+  {% if session.get('user_role') == 'admin' %}Para ajustar um prazo, use <a href="{{ url_for('checklist_templates') }}">Modelos de checklist</a>.{% endif %}</p>
+</div>
+
+{% for group in templates|groupby('category') %}
+<section class="panel dl-group">
+  <div class="panel-heading"><div><h2>{{ group.grouper }}</h2><p>{{ group.list|length }} tarefa{{ 's' if group.list|length != 1 }}</p></div></div>
+  <div class="table-wrap">
+    <table class="data-table dl-table">
+      <thead><tr><th>Tarefa</th><th>Prazo</th><th>Quando entra no checklist</th></tr></thead>
+      <tbody>
+      {% for item in group.list %}
+        <tr>
+          <td><strong>{{ item.title }}</strong>{% if item.description %}<span class="table-sub">{{ item.description }}</span>{% endif %}</td>
+          <td><span class="dl-offset-pill {% if item.due_offset < 0 %}is-before{% elif item.due_offset > 0 %}is-after{% else %}is-day{% endif %}">{{ offset_text(item.due_offset) }}</span></td>
+          <td>{% if item.trigger_type == 'always' %}<span class="muted">Todo evento</span>{% else %}{{ trigger_types.get(item.trigger_type, item.trigger_type) }}: <strong>{{ item.trigger_value }}</strong>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<div class="empty-state"><div class="empty-shape">▥</div><h3>Nenhum modelo ativo</h3><p>Cadastre modelos de checklist para ver os prazos aqui.</p></div>
+{% endfor %}
+{% endblock %}
