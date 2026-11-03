@@ -21,6 +21,23 @@ def _critical_task_rows(limit=12):
     return out
 
 
+def _unread_messages_rows(limit=12):
+    """Eventos com mensagens do solicitante ainda não lidas pela equipe, mais recentes primeiro."""
+    rows = get_db().execute(
+        """SELECT e.id AS event_id, e.title AS event_title, e.protocol AS event_protocol,
+                  COUNT(*) AS unread_count, MAX(m.created_at) AS last_at,
+                  (SELECT m2.body FROM event_messages m2 WHERE m2.event_id = e.id
+                     AND m2.sender_type = 'solicitante' AND m2.read_by_team = 0
+                     ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) AS preview
+           FROM event_messages m JOIN events e ON e.id = m.event_id
+           WHERE m.sender_type = 'solicitante' AND m.read_by_team = 0
+           GROUP BY e.id, e.title, e.protocol
+           ORDER BY last_at DESC LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def _pending_department_confirmations(limit=12):
     return get_db().execute("""SELECT u.*, e.title event_title, e.start_date event_date, e.id parent_event_id,
         d.name department_name, d.recipient_email FROM event_department_updates u
@@ -128,10 +145,13 @@ def dashboard():
     schedule_conflicts = _find_schedule_conflicts(future_events)
     critical_tasks = _critical_task_rows(8)
     pending_confirmations = _pending_department_confirmations(8)
-    alert_count = len(schedule_conflicts) + len(critical_tasks) + len(pending_confirmations)
+    unread_messages = _unread_messages_rows(8)
+    message_alert_count = len(unread_messages)
+    alert_count = len(schedule_conflicts) + len(critical_tasks) + len(pending_confirmations) + message_alert_count
     return render_template("dashboard.html", counts=counts, total=total, pending=pending, active=active, upcoming=upcoming, recent=recent,
                            schedule_conflicts=schedule_conflicts, critical_tasks=critical_tasks,
-                           pending_confirmations=pending_confirmations, alert_count=alert_count)
+                           pending_confirmations=pending_confirmations, unread_messages=unread_messages,
+                           message_alert_count=message_alert_count, alert_count=alert_count)
 
 
 def _resolve_internal_owner(db, event, form):
