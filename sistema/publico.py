@@ -123,16 +123,52 @@ def create_event_from_form(form):
 
 @app.get("/solicitar")
 def request_event():
-    return render_template("request_form.html", submitted=False)
+    return render_template("request_form.html", submitted=False, custom_fields=_active_custom_form_fields(get_db()))
+
+
+def _validate_custom_fields(form, custom_fields):
+    """Valida as perguntas personalizadas do formulário público (mesmas regras usadas no checklist).
+    Retorna (lista_de_respostas_prontas_para_inserir, mensagem_de_erro)."""
+    answers = []
+    for cf in custom_fields:
+        raw = (form.get(f"custom_field_{cf['id']}") or "").strip()
+        raw = raw[:3000] if cf["field_type"] == "textarea" else raw[:300]
+        if cf["required"] and not raw:
+            return None, f"Preencha a pergunta obrigatória “{cf['label']}”."
+        if raw and cf["field_type"] == "date" and not normalize_date(raw):
+            return None, f"A pergunta “{cf['label']}” precisa de uma data válida."
+        if raw and cf["field_type"] == "number":
+            try:
+                float(raw.replace(",", "."))
+            except ValueError:
+                return None, f"A pergunta “{cf['label']}” precisa de um número."
+        if raw and cf["field_type"] == "select" and raw not in cf["options_list"]:
+            return None, f"Escolha uma opção válida em “{cf['label']}”."
+        if raw and cf["field_type"] == "boolean" and raw not in {"Sim", "Não"}:
+            return None, f"Escolha “Sim” ou “Não” em “{cf['label']}”."
+        if raw:
+            answers.append((cf["id"], cf["label"], cf["field_type"], raw))
+    return answers, None
 
 
 @app.post("/solicitar")
 def submit_event_request():
+    db = get_db()
+    custom_fields = _active_custom_form_fields(db)
+    custom_answers, custom_error = _validate_custom_fields(request.form, custom_fields)
+    if custom_error:
+        flash(custom_error, "error")
+        return render_template("request_form.html", submitted=False, form=request.form, custom_fields=custom_fields), 400
     result, error = create_event_from_form(request.form)
     if error:
         flash(error, "error")
-        return render_template("request_form.html", submitted=False, form=request.form), 400
-    db = get_db()
+        return render_template("request_form.html", submitted=False, form=request.form, custom_fields=custom_fields), 400
+    if custom_answers:
+        db.executemany(
+            """INSERT INTO event_custom_field_values(event_id, field_id, field_label, field_type, value, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            [(result["id"], field_id, label, field_type, value, now_iso()) for field_id, label, field_type, value in custom_answers],
+        )
     created = db.execute("SELECT * FROM events WHERE id=?", (result["id"],)).fetchone()
     queue_submission_confirmation(db, created)
     db.commit()
@@ -183,29 +219,108 @@ def api_check_reservation_availability():
     return jsonify({"ready": True, "valid_time": True, "conflict": False, "message": message})
 
 
+def _public_checklist_summary(db, event_id: int) -> dict | None:
+    """Resumo do checklist para a página pública de acompanhamento: só o progresso por
+    etapa, sem nomes de responsáveis ou descrições internas das tarefas."""
+    rows = db.execute(
+        """SELECT category, COUNT(*) AS total,
+                  SUM(CASE WHEN status IN ('concluida','nao_se_aplica') THEN 1 ELSE 0 END) AS done,
+                  MIN(sort_order) AS first_order
+           FROM tasks WHERE event_id = ? GROUP BY category ORDER BY first_order""",
+        (event_id,),
+    ).fetchall()
+    if not rows:
+        return None
+    total = sum(r["total"] for r in rows)
+    done = sum(r["done"] for r in rows)
+    stages = [{
+        "category": r["category"] or "Geral", "done": r["done"], "total": r["total"],
+        "pct": round((r["done"] / r["total"]) * 100) if r["total"] else 0,
+    } for r in rows]
+    return {"total": total, "done": done, "pct": round((done / total) * 100) if total else 0, "stages": stages}
+
+
 @app.route("/acompanhar", methods=["GET", "POST"])
 def track_request():
+    protocol = (request.form.get("protocol") if request.method == "POST" else request.args.get("protocol")) or ""
+    protocol = protocol.strip().upper()
+    attempted = bool(protocol)
     result = None
-    attempted = False
-    if request.method == "POST":
-        attempted = True
+    info_request = None
+    checklist_summary = None
+    messages = None
+    if protocol:
         limit_key = f"track:{request.remote_addr}"
         if _too_many_attempts(limit_key, 15):
             flash("Muitas consultas em pouco tempo. Aguarde 15 minutos e tente novamente.", "error")
-            return render_template("tracking.html", result=None, attempted=False), 429
-        protocol = request.form.get("protocol", "").strip().upper()
-        email = request.form.get("email", "").strip().lower()
-        result = get_db().execute(
-            "SELECT id, protocol, title, start_date, end_date, status, created_at, updated_at FROM events WHERE protocol = ? AND lower(organizer_email) = ?",
-            (protocol, email),
+            return render_template("tracking.html", result=None, attempted=False, protocol="", checklist_summary=None,
+                                   messages=None, sender_labels=SENDER_TYPE_LABELS), 429
+        db = get_db()
+        result = db.execute(
+            "SELECT id, protocol, title, start_date, end_date, status, created_at, updated_at, organizer_name FROM events WHERE protocol = ?",
+            (protocol,),
         ).fetchone()
         if not result:
             _register_attempt(limit_key)
-    info_request = None
-    if result and result["status"] == "aguardando_informacoes":
-        info_request = get_db().execute("SELECT * FROM info_requests WHERE event_id=? AND status='aberta' ORDER BY id DESC LIMIT 1",
-                                        (result["id"],)).fetchone()
-    return render_template("tracking.html", result=result, attempted=attempted, info_request=info_request)
+        else:
+            if result["status"] == "aguardando_informacoes":
+                info_request = db.execute(
+                    "SELECT * FROM info_requests WHERE event_id=? AND status='aberta' ORDER BY id DESC LIMIT 1",
+                    (result["id"],),
+                ).fetchone()
+            checklist_summary = _public_checklist_summary(db, result["id"])
+            messages = get_event_messages(db, result["id"])
+            mark_event_messages_read_by_requester(db, result["id"])
+            db.commit()
+    return render_template("tracking.html", result=result, attempted=attempted, info_request=info_request,
+                           checklist_summary=checklist_summary, protocol=protocol, messages=messages,
+                           sender_labels=SENDER_TYPE_LABELS)
+
+
+@app.post("/acompanhar/mensagem")
+def track_request_message():
+    """Permite que o solicitante envie uma mensagem sobre o evento, dentro do chat
+    do evento (tabela event_messages) — a equipe vê e responde na aba Mensagens."""
+    protocol = request.form.get("protocol", "").strip().upper()
+    message = (request.form.get("message") or "").strip()
+    limit_key = f"trackmsg:{request.remote_addr}"
+    if _too_many_attempts(limit_key, 10):
+        flash("Muitas mensagens em pouco tempo. Aguarde 15 minutos e tente novamente.", "error")
+        return redirect(url_for("track_request", protocol=protocol))
+    db = get_db()
+    event = db.execute(
+        "SELECT id, title, protocol, organizer_name, internal_owner FROM events WHERE protocol = ?", (protocol,)
+    ).fetchone()
+    if not event:
+        _register_attempt(limit_key)
+        flash("Não encontramos uma solicitação com esse protocolo.", "error")
+        return redirect(url_for("track_request"))
+    if not message:
+        flash("Escreva uma mensagem antes de enviar.", "error")
+    elif len(message) > 2000:
+        flash("Mensagem muito longa. Resuma em até 2000 caracteres.", "error")
+    else:
+        sender_name = event["organizer_name"] or "Solicitante"
+        db.execute(
+            "INSERT INTO event_messages(event_id, sender_type, sender_name, body, created_at, read_by_team, read_by_requester) "
+            "VALUES (?, 'solicitante', ?, ?, ?, 0, 1)",
+            (event["id"], sender_name, message[:2000], now_iso()),
+        )
+        log_event(db, event["id"], "mensagem_solicitante", f"Nova mensagem de {sender_name}: {message[:300]}")
+        owner = (event["internal_owner"] or "").strip()
+        recipients = [owner] if _valid_email(owner) else [
+            r["email"] for r in db.execute("SELECT email FROM users WHERE role='admin' AND is_active=1").fetchall()
+        ]
+        link = public_link("event_messages_view", event_id=event["id"])
+        body = (f"O solicitante enviou uma mensagem sobre a solicitação.\n\nEvento: {event['title']} ({event['protocol']})\n\n"
+                f"Mensagem de {sender_name}:\n{message}\n"
+                + (f"\nResponder: {link}\n" if link else "\nAcesse o evento no sistema, aba Mensagens, para responder.\n"))
+        for person in recipients:
+            queue_email(db, person, f"Nova mensagem sobre a solicitação — {event['protocol']}", body, "mensagem_solicitante", event["id"])
+        db.commit()
+        dispatch_emails_async()
+        flash("Mensagem enviada! A equipe do Setor de Eventos vai receber sua observação e pode responder por aqui.", "success")
+    return redirect(url_for("track_request", protocol=protocol))
 
 
 def _default_login_destination(role: str | None) -> str:
@@ -287,7 +402,63 @@ def manual_center():
         manual_year=index_info.get("version_year", 2023),
         manual_pages=index_info.get("pdf_pages", 67),
         manual_pdf_url=url_for("static", filename="docs/manual_cerimonial_eventos_fmabc_2023.pdf"),
+        ai_enabled=bool(anthropic_api_key()),
     )
+
+
+@app.post("/manual/chat")
+def manual_chat():
+    """Endpoint usado pelo chat de IA da página do manual (templates/manual.html).
+    Mantém a chave da Anthropic só no servidor — o navegador nunca a recebe.
+    A resposta é sempre fundamentada nos trechos reais do manual, encontrados
+    pela mesma busca literal usada na página; a IA só reformula/explica esses
+    trechos de forma conversada, e nunca responde além do que eles cobrem."""
+    import json as _json
+
+    question = (request.form.get("question") or "").strip()[:350]
+    if not question:
+        return jsonify({"error": "Digite uma pergunta para consultar o manual."}), 400
+
+    history = []
+    try:
+        raw_history = _json.loads(request.form.get("history") or "[]")
+    except (TypeError, ValueError):
+        raw_history = []
+    if isinstance(raw_history, list):
+        for item in raw_history[-6:]:
+            if (
+                isinstance(item, dict)
+                and item.get("role") in {"user", "assistant"}
+                and isinstance(item.get("content"), str)
+            ):
+                history.append({"role": item["role"], "content": item["content"][:2000]})
+
+    results = search_manual(question)
+
+    if not anthropic_api_key():
+        answer = (
+            "Encontrei os seguintes trechos no Manual de Cerimonial e Eventos da FMABC:"
+            if results
+            else "Não encontrei trechos suficientes no manual para responder com segurança a essa "
+                 "pergunta. Tente usar termos mais próximos dos utilizados no documento ou consulte "
+                 "o manual completo abaixo."
+        )
+        return jsonify({"answer": answer, "results": results, "ai_used": False})
+
+    try:
+        answer = ask_manual_assistant(question, results, history)
+    except Exception as exc:  # pragma: no cover - falha de rede/API externa
+        app.logger.warning("Falha ao consultar a IA do manual: %s", exc)
+        answer = (
+            "Encontrei os seguintes trechos no manual (não consegui gerar um resumo por IA agora):"
+            if results
+            else "Não encontrei trechos suficientes no manual para responder com segurança a essa "
+                 "pergunta. Tente usar termos mais próximos dos utilizados no documento ou consulte "
+                 "o manual completo abaixo."
+        )
+        return jsonify({"answer": answer, "results": results, "ai_used": False})
+
+    return jsonify({"answer": answer, "results": results, "ai_used": True})
 
 
 def _reservation_conflict_message(blockers, multi_day=False):

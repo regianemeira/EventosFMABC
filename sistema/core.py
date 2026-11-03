@@ -519,6 +519,28 @@ CREATE TABLE IF NOT EXISTS task_field_values (
     UNIQUE(task_id, field_id)
 );
 CREATE INDEX IF NOT EXISTS idx_task_field_values_task ON task_field_values(task_id);
+CREATE TABLE IF NOT EXISTS custom_form_fields (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    field_type TEXT NOT NULL DEFAULT 'text',
+    options TEXT,
+    required INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_custom_form_fields ON custom_form_fields(active, sort_order, id);
+CREATE TABLE IF NOT EXISTS event_custom_field_values (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    field_id INTEGER REFERENCES custom_form_fields(id) ON DELETE SET NULL,
+    field_label TEXT NOT NULL,
+    field_type TEXT NOT NULL DEFAULT 'text',
+    value TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_event_custom_field_values_event ON event_custom_field_values(event_id);
 CREATE TABLE IF NOT EXISTS event_budget_quotes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -541,6 +563,17 @@ CREATE TABLE IF NOT EXISTS event_change_log (
     summary TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_event_change_log_event ON event_change_log(event_id, changed_at DESC);
+CREATE TABLE IF NOT EXISTS event_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    sender_type TEXT NOT NULL,
+    sender_name TEXT,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_by_team INTEGER NOT NULL DEFAULT 0,
+    read_by_requester INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_event_messages_event ON event_messages(event_id, created_at);
 CREATE TABLE IF NOT EXISTS venues (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -719,7 +752,34 @@ ATTACHMENT_CATEGORIES = ["Autorização / ofício", "Contrato / proposta", "Nota
                          "Programação / roteiro", "Lista de presença", "Fotos", "Enviado pelo solicitante", "Outro"]
 
 TIMELINE_KINDS = {"criacao": "Solicitação", "status": "Status", "edicao": "Edição", "comentario": "Comentário",
-                  "anexo": "Anexo", "encerramento": "Encerramento"}
+                  "anexo": "Anexo", "encerramento": "Encerramento", "mensagem_solicitante": "Mensagem do solicitante",
+                  "mensagem_equipe": "Resposta ao solicitante"}
+
+SENDER_TYPE_LABELS = {"solicitante": "Solicitante", "equipe": "Setor de Eventos"}
+
+
+def get_event_messages(db, event_id: int) -> list[dict]:
+    """Thread completa do chat do evento, em ordem cronológica."""
+    rows = db.execute(
+        "SELECT * FROM event_messages WHERE event_id=? ORDER BY created_at, id", (event_id,)
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def mark_event_messages_read_by_team(db, event_id: int) -> None:
+    """Marca como lidas (pela equipe interna) as mensagens pendentes do solicitante (não faz commit)."""
+    db.execute(
+        "UPDATE event_messages SET read_by_team=1 WHERE event_id=? AND sender_type='solicitante' AND read_by_team=0",
+        (event_id,),
+    )
+
+
+def mark_event_messages_read_by_requester(db, event_id: int) -> None:
+    """Marca como lidas (pelo solicitante) as respostas pendentes da equipe (não faz commit)."""
+    db.execute(
+        "UPDATE event_messages SET read_by_requester=1 WHERE event_id=? AND sender_type='equipe' AND read_by_requester=0",
+        (event_id,),
+    )
 
 def seed_venues(db: sqlite3.Connection) -> None:
     """Primeira carga do cadastro de espaços a partir da lista fixa usada até a versão anterior."""
@@ -1119,6 +1179,19 @@ def _task_fields_by_template(db, template_ids=None) -> dict:
         field["options_list"] = _split_field_options(field.get("options"))
         grouped.setdefault(field["template_id"], []).append(field)
     return grouped
+
+def _active_custom_form_fields(db, active_only: bool = True) -> list:
+    """Perguntas personalizadas cadastradas pelo administrador para o formulário público."""
+    sql = "SELECT * FROM custom_form_fields"
+    if active_only:
+        sql += " WHERE active = 1"
+    sql += " ORDER BY sort_order, id"
+    fields = []
+    for row in db.execute(sql).fetchall():
+        field = dict(row)
+        field["options_list"] = _split_field_options(field.get("options"))
+        fields.append(field)
+    return fields
 
 def add_checklist(event, commit: bool = True) -> int:
     """Create an initial checklist from configurable templates and the event form selections."""
@@ -1653,7 +1726,8 @@ EMAIL_STATUS_LABELS = {"pendente": "Aguardando envio", "enviado": "Enviado", "ma
 EMAIL_KIND_LABELS = {"status": "Aviso de status", "confirmacao": "Confirmação de recebimento",
                      "pedido_info": "Pedido de informações", "resposta_info": "Resposta do solicitante",
                      "lembrete_tarefas": "Lembrete de tarefas", "lembrete_area": "Lembrete às áreas",
-                     "lembrete_info": "Lembrete ao solicitante"}
+                     "lembrete_info": "Lembrete ao solicitante", "mensagem_solicitante": "Mensagem do solicitante (chat)",
+                     "mensagem_equipe": "Resposta da equipe (chat)"}
 NOTIFY_STATUSES = {"em_triagem", "aguardando_informacoes", "aprovado", "em_planejamento", "cancelado"}
 _OUTBOX_LOCK = threading.Lock()
 
@@ -2159,7 +2233,12 @@ def event_tab_info(event_id: int) -> dict:
     row = db.execute("""SELECT COUNT(*) total, SUM(CASE WHEN status IN ('concluida','nao_se_aplica') THEN 1 ELSE 0 END) done
                         FROM tasks WHERE event_id=?""", (event_id,)).fetchone()
     attachments = db.execute("SELECT COUNT(*) FROM event_attachments WHERE event_id=?", (event_id,)).fetchone()[0]
-    return {"tasks_total": row["total"] or 0, "tasks_done": row["done"] or 0, "attachments": attachments}
+    unread_messages = db.execute(
+        "SELECT COUNT(*) FROM event_messages WHERE event_id=? AND sender_type='solicitante' AND read_by_team=0",
+        (event_id,),
+    ).fetchone()[0]
+    return {"tasks_total": row["total"] or 0, "tasks_done": row["done"] or 0, "attachments": attachments,
+            "unread_messages": unread_messages}
 
 
 app.jinja_env.globals["event_tab_info"] = event_tab_info

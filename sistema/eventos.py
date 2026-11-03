@@ -268,6 +268,9 @@ def event_detail(event_id):
         ).fetchall():
             field_values.setdefault(value["task_id"], {})[value["field_id"]] = value["value"] or ""
     budget = db.execute("SELECT COALESCE(SUM(estimated_amount),0) estimated,COALESCE(SUM(actual_amount),0) actual FROM event_budget_items WHERE event_id=? AND status<>'cancelado'",(event_id,)).fetchone()
+    custom_field_answers = db.execute(
+        "SELECT * FROM event_custom_field_values WHERE event_id=? ORDER BY id", (event_id,)
+    ).fetchall()
     return render_template(
         "event_detail.html", event=event, tasks=tasks, completed=completed, progress=progress,
         event_support=event_support(event), event_modes=event_modes(event),
@@ -287,6 +290,7 @@ def event_detail(event_id):
         existing_task_keys={(str(t["title"]).strip().casefold(), str(t["category"] or "").strip().casefold()) for t in tasks},
         task_fields_by_template=task_fields,
         task_field_values=field_values,
+        custom_field_answers=custom_field_answers,
     )
 
 
@@ -322,6 +326,43 @@ def add_event_comment(event_id):
         db.commit()
         flash("Comentário registrado na linha do tempo.", "success")
     return redirect(url_for("event_detail", event_id=event_id) + "#linha-do-tempo")
+
+
+@app.route("/eventos/<int:event_id>/mensagens", methods=["GET", "POST"])
+@login_required
+def event_messages_view(event_id):
+    """Chat do evento: conversa entre a equipe interna e o solicitante (via página pública /acompanhar)."""
+    event = get_event_or_404(event_id)
+    db = get_db()
+    if request.method == "POST":
+        text = (request.form.get("message") or "").strip()
+        if not text:
+            flash("Escreva uma mensagem antes de enviar.", "error")
+        elif len(text) > 4000:
+            flash("Mensagem muito longa. Resuma em até 4000 caracteres.", "error")
+        else:
+            sender_name = session.get("user_email") or "Setor de Eventos"
+            db.execute(
+                "INSERT INTO event_messages(event_id, sender_type, sender_name, body, created_at, read_by_team, read_by_requester) "
+                "VALUES (?, 'equipe', ?, ?, ?, 1, 0)",
+                (event_id, sender_name, text[:4000], now_iso()),
+            )
+            log_event(db, event_id, "mensagem_equipe", f"Resposta enviada ao solicitante: {text[:300]}")
+            recipient = (event["contact_email"] or event["organizer_email"] or "").strip()
+            link = public_link("track_request", protocol=event["protocol"])
+            if _valid_email(recipient):
+                body = (f"O Setor de Eventos respondeu à sua solicitação.\n\nEvento: {event['title']} ({event['protocol']})\n\n"
+                        f"Mensagem de {sender_name}:\n{text}\n"
+                        + (f"\nAcompanhe e responda em: {link}\n" if link else "\nAcesse a página \"Acompanhar solicitação\" com o protocolo acima para responder.\n"))
+                queue_email(db, recipient, f"Nova mensagem sobre sua solicitação — {event['protocol']}", body, "mensagem_equipe", event_id)
+            db.commit()
+            dispatch_emails_async()
+            flash("Mensagem enviada ao solicitante.", "success")
+        return redirect(url_for("event_messages_view", event_id=event_id))
+    mark_event_messages_read_by_team(db, event_id)
+    db.commit()
+    messages = get_event_messages(db, event_id)
+    return render_template("event_messages.html", event=event, messages=messages, sender_labels=SENDER_TYPE_LABELS)
 
 
 @app.post("/eventos/<int:event_id>/anexos")
