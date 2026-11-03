@@ -56,7 +56,7 @@ class SistemaTest(unittest.TestCase):
     def test_todas_as_paginas_abrem(self):
         paginas = ["/", "/triagem", "/eventos", "/agenda", "/comunicacao", "/relatorios",
                    "/relatorios/comparativo-custos", "/relatorios/exportar.csv", "/checklist-consolidado",
-                   "/modelos-checklist", "/cadastros-apoio", "/equipe", "/manual?q=mesa",
+                   "/checklist-prazos", "/modelos-checklist", "/cadastros-apoio", "/formulario-publico", "/equipe", "/manual?q=mesa",
                    "/eventos/1", "/eventos/1/editar", "/eventos/1/roteiro", "/eventos/1/orcamento",
                    "/eventos/1/ocorrencias", "/eventos/1/finalizar", "/eventos/1/checklist/imprimir", "/espacos",
                    "/eventos/1/checklist", "/eventos/1/checklist?agrupar=etapa", "/eventos/1/checklist?agrupar=responsavel"]
