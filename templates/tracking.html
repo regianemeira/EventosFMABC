@@ -1,8 +1,82 @@
 {% extends 'base.html' %}
 {% block title %}Acompanhar solicitação{% endblock %}
 {% block content %}
-<section class="tracking-wrap"><div class="eyebrow">CONSULTA DE PROTOCOLO</div><h1>Acompanhe sua solicitação</h1><p class="tracking-lead">Informe o protocolo recebido ao enviar o formulário e o mesmo e-mail cadastrado na solicitação.</p><form method="post" class="tracking-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><div class="field"><label for="protocol">Protocolo</label><input id="protocol" name="protocol" required placeholder="FMABC-2026-ABC123" autocapitalize="characters"></div><div class="field"><label for="email">E-mail cadastrado</label><input id="email" name="email" type="email" required placeholder="nome@fmabc.br"></div><button class="btn btn-primary btn-wide" type="submit">Consultar andamento <span>→</span></button></form>
-{% if attempted and not result %}<div class="inline-alert">Não encontramos uma solicitação com essa combinação de protocolo e e-mail. Confira os dados e tente novamente.</div>{% endif %}
-{% if result %}<div class="tracking-result"><div class="tracking-result-head"><div><span class="card-kicker">PROTOCOLO {{ result.protocol }}</span><h2>{{ result.title }}</h2></div><span class="status-pill {{ status_classes.get(result.status, 'status-gray') }}">{{ status_labels.get(result.status, result.status) }}</span></div><div class="tracking-data"><div><span>Data prevista</span><strong>{{ result.start_date[8:10] }}/{{ result.start_date[5:7] }}/{{ result.start_date[:4] }}</strong></div><div><span>Solicitação enviada</span><strong>{{ result.created_at[:10] }}</strong></div><div><span>Última atualização</span><strong>{{ result.updated_at[:10] }}</strong></div></div>{% if info_request %}<div class="info-request-box"><strong>O Setor de Eventos precisa de informações</strong><p class="preserve-lines">{{ info_request.question }}</p><a class="btn btn-primary" href="{{ url_for('answer_info_request', token=info_request.token) }}">Responder e enviar arquivos <span>→</span></a></div>{% endif %}<div class="status-explanation"><strong>O que acontece agora?</strong><p>{% if result.status == 'recebido' %}Sua solicitação foi recebida e aguarda análise inicial do Setor de Eventos.{% elif result.status == 'em_triagem' %}A equipe está analisando as informações e necessidades do evento.{% elif result.status == 'aguardando_informacoes' %}A equipe precisa de informações complementares. Entre em contato com o Setor de Eventos para verificar o que falta.{% elif result.status in ['aprovado', 'em_planejamento'] %}A solicitação foi aprovada e está na etapa de planejamento e organização.{% elif result.status == 'realizado' %}O evento foi marcado como realizado. A equipe poderá concluir o relatório de pós-evento e disponibilizar a avaliação. {% elif result.status == 'encerrado' %}O evento foi finalizado pelo Setor de Eventos. Se você recebeu o convite para avaliação, utilize o link enviado por e-mail para compartilhar sua experiência.{% else %}O status da solicitação foi atualizado. Entre em contato com o Setor de Eventos se precisar de mais informações.{% endif %}</p></div></div>{% endif %}
-<a class="back-link" href="{{ url_for('request_event') }}">← Voltar para solicitação de evento</a></section>
+<section class="tracking-wrap tracking-wrap-wide">
+  <div class="eyebrow">CONSULTA DE PROTOCOLO</div>
+  <h1>Acompanhe sua solicitação</h1>
+  <p class="tracking-lead">Informe o protocolo recebido ao enviar o formulário para ver o andamento do seu evento.</p>
+  <form method="post" class="tracking-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <div class="field"><label for="protocol">Protocolo</label><input id="protocol" name="protocol" required placeholder="FMABC-2026-ABC123" autocapitalize="characters" value="{{ protocol or '' }}"></div>
+    <button class="btn btn-primary btn-wide" type="submit">Consultar andamento <span>→</span></button>
+  </form>
+
+  {% if attempted and not result %}<div class="inline-alert">Não encontramos uma solicitação com esse protocolo. Confira o código recebido por e-mail e tente novamente.</div>{% endif %}
+
+  {% if result %}
+  <div class="tracking-result">
+    <div class="tracking-result-head">
+      <div><span class="card-kicker">PROTOCOLO {{ result.protocol }}</span><h2>{{ result.title }}</h2></div>
+      <span class="status-pill {{ status_classes.get(result.status, 'status-gray') }}">{{ status_labels.get(result.status, result.status) }}</span>
+    </div>
+    <div class="tracking-data">
+      <div><span>Data prevista</span><strong>{{ result.start_date[8:10] }}/{{ result.start_date[5:7] }}/{{ result.start_date[:4] }}</strong></div>
+      <div><span>Solicitação enviada</span><strong>{{ result.created_at[:10] }}</strong></div>
+      <div><span>Última atualização</span><strong>{{ result.updated_at[:10] }}</strong></div>
+    </div>
+
+    {% if info_request %}
+    <div class="info-request-box"><strong>O Setor de Eventos precisa de informações</strong><p class="preserve-lines">{{ info_request.question }}</p><a class="btn btn-primary" href="{{ url_for('answer_info_request', token=info_request.token) }}">Responder e enviar arquivos <span>→</span></a></div>
+    {% endif %}
+
+    {% if checklist_summary %}
+    <div class="tracking-checklist">
+      <div class="tracking-checklist-head">
+        <h3>Como está a organização</h3>
+        <span class="tracking-checklist-pct">{{ checklist_summary.pct }}%</span>
+      </div>
+      <div class="tracking-progress-track"><span class="tracking-progress-bar" style="width:{{ checklist_summary.pct }}%"></span></div>
+      <p class="tracking-checklist-sub">{{ checklist_summary.done }} de {{ checklist_summary.total }} etapas da organização já concluídas pela equipe</p>
+      <ul class="tracking-stages">
+        {% for s in checklist_summary.stages %}
+        <li class="tracking-stage {% if s.total and s.done == s.total %}is-done{% endif %}">
+          <span class="tracking-stage-name">{{ s.category }}</span>
+          <span class="tracking-stage-track"><span class="tracking-stage-bar" style="width:{{ s.pct }}%"></span></span>
+          <span class="tracking-stage-count">{{ s.done }}/{{ s.total }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="status-explanation"><strong>O que acontece agora?</strong><p>{% if result.status == 'recebido' %}Sua solicitação foi recebida e aguarda análise inicial do Setor de Eventos.{% elif result.status == 'em_triagem' %}A equipe está analisando as informações e necessidades do evento.{% elif result.status == 'aguardando_informacoes' %}A equipe precisa de informações complementares. Entre em contato com o Setor de Eventos para verificar o que falta.{% elif result.status in ['aprovado', 'em_planejamento'] %}A solicitação foi aprovada e está na etapa de planejamento e organização.{% elif result.status == 'realizado' %}O evento foi marcado como realizado. A equipe poderá concluir o relatório de pós-evento e disponibilizar a avaliação.{% elif result.status == 'encerrado' %}O evento foi finalizado pelo Setor de Eventos. Se você recebeu o convite para avaliação, utilize o link enviado por e-mail para compartilhar sua experiência.{% else %}O status da solicitação foi atualizado. Entre em contato com o Setor de Eventos se precisar de mais informações.{% endif %}</p></div>
+
+    <div class="tracking-message-box">
+      <h3>Converse com o Setor de Eventos</h3>
+      <p class="tracking-message-hint">Precisa avisar algo sobre o evento — uma mudança, uma dúvida, um pedido? Mande uma mensagem e acompanhe as respostas aqui.</p>
+      {% if messages %}
+      <ul class="tracking-thread" aria-label="Histórico de mensagens">
+        {% for m in messages %}
+        <li class="tracking-msg tracking-msg-{{ m.sender_type }}">
+          <div class="tracking-bubble">
+            <div class="tracking-bubble-head"><strong>{{ sender_labels.get(m.sender_type, m.sender_type) }}</strong><span class="tracking-bubble-time">{{ m.created_at[:16]|replace('T',' ') }}</span></div>
+            <p class="preserve-lines">{{ m.body }}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="tracking-empty-thread">Nenhuma mensagem ainda. Escreva abaixo para iniciar a conversa.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('track_request_message') }}" class="tracking-message-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <input type="hidden" name="protocol" value="{{ result.protocol }}">
+        <label class="sr-only" for="tracking-message">Mensagem</label>
+        <textarea id="tracking-message" name="message" rows="3" maxlength="2000" required placeholder="Escreva sua mensagem ou observação aqui..."></textarea>
+        <button class="btn btn-secondary" type="submit">Enviar mensagem <span>→</span></button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  <a class="back-link" href="{{ url_for('request_event') }}">← Voltar para solicitação de evento</a>
+</section>
 {% endblock %}
