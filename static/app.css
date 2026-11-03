@@ -975,6 +975,17 @@ html.nav-collapsed .logout-button{justify-content:center!important;width:48px;pa
 .metric-card-pending.has-new-alert .metric-accent-line{background:#e0453f!important;animation:fmabcAlertBlink 1.2s ease-in-out infinite}
 @media(prefers-reduced-motion:reduce){.nav-badge-alert,.new-event-banner,.new-event-banner-dot,.metric-card-pending.has-new-alert,.metric-card-pending.has-new-alert .metric-symbol.amber,.metric-card-pending.has-new-alert .metric-accent-line{animation:none}}
 
+/* Alerta de mensagem nova do solicitante (chat do evento), na Visão geral */
+@keyframes fmabcMsgBlink{0%,100%{background:var(--navy);box-shadow:0 0 0 0 #4b517255}50%{background:#6670a0;box-shadow:0 0 0 6px #4b517200}}
+@keyframes fmabcMsgPulse{0%,100%{box-shadow:0 0 0 0 #4b51724d}50%{box-shadow:0 0 0 7px #4b517200}}
+.new-message-banner{background:#eef1fb;border-color:#c3cdf0;color:var(--navy);animation:fmabcMsgPulse 1.8s ease-in-out infinite}
+.new-message-banner:hover{box-shadow:0 8px 20px rgba(75,81,114,.16)}
+.new-message-banner .new-event-banner-dot{animation:fmabcMsgBlink 1.2s ease-in-out infinite}
+.new-message-banner .new-event-banner-link{color:var(--navy)}
+.dashboard-alert-item.alert-info{border-left:3px solid var(--navy)}
+.dashboard-alert-item.alert-info .dashboard-alert-icon{background:#eef1fb;color:var(--navy)}
+@media(prefers-reduced-motion:reduce){.new-message-banner,.new-message-banner .new-event-banner-dot{animation:none}}
+
 /* Comunicação em formato de caixa de e-mail (rascunhos / enviados / novo comunicado) */
 .comm-inbox{display:flex;align-items:stretch;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;min-height:560px;margin-bottom:22px}
 .comm-inbox-sidebar{width:300px;flex:0 0 300px;display:flex;flex-direction:column;background:var(--canvas);border-right:1px solid var(--line);max-height:82vh}
