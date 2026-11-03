@@ -3,6 +3,7 @@
 {% set sections = {
   'checklists': {'title': 'Checklists', 'eyebrow': 'OPERAÇÃO DE EVENTOS', 'tabs': [
       ('Tarefas de todos os eventos', 'consolidated_checklist', True),
+      ('Guia de prazos', 'checklist_deadlines_guide', True),
       ('Modelos de checklist', 'checklist_templates', is_admin)]},
   'comunicacao': {'title': 'Comunicação', 'eyebrow': 'ÁREAS DE APOIO E SOLICITANTES', 'tabs': [
       ('Agenda e tarefas por área', 'communication_center', True),
@@ -13,6 +14,7 @@
   'configuracoes': {'title': 'Configurações', 'eyebrow': 'ADMINISTRAÇÃO', 'tabs': [
       ('Espaços e bloqueios', 'venue_management', is_admin),
       ('Cadastros de apoio', 'support_catalog_management', is_admin),
+      ('Formulário público', 'public_form_fields_management', is_admin),
       ('Equipe e acessos', 'team_management', is_admin)]},
 } %}
 {% set sec = sections[section] %}
