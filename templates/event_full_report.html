@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block title %}Relatório completo — {{ event.title }}{% endblock %}
+{% block content %}
+<div class="page-heading heading-row report-filter-panel-heading-wrap">
+  <div><div class="eyebrow">{{ event.protocol }}</div><h1>Relatório completo do evento</h1><p>Tudo sobre este evento em uma única página, pronta para impressão: dados gerais, checklist, orçamento, ocorrências, avaliação, anexos{% if is_admin %} e horas da equipe{% endif %}.</p></div>
+  <a class="back-link" href="{{ url_for('event_detail', event_id=event.id) }}">← Voltar ao evento</a>
+</div>
+{% include '_event_tabs.html' %}
+
+<div class="report-print-header">
+  <img class="report-print-logo" src="{{ url_for('static', filename='logo-fmabc.png') }}" alt="FMABC Centro Universitário">
+  <div class="report-print-titles">
+    <strong>{{ event.title }}</strong>
+    <span>Relatório completo do evento · Protocolo {{ event.protocol }}</span>
+  </div>
+  <div class="report-print-meta">
+    <span>{{ event.start_date[8:10] }}/{{ event.start_date[5:7] }}/{{ event.start_date[:4] }}{% if event.end_date and event.end_date != event.start_date %} a {{ event.end_date[8:10] }}/{{ event.end_date[5:7] }}/{{ event.end_date[:4] }}{% endif %} · {{ status_labels.get(event.status, event.status) }}</span>
+    <span>Gerado em <span id="report-print-generated"></span></span>
+  </div>
+</div>
+
+<div class="report-actions-row"><button class="btn btn-secondary" type="button" onclick="window.print()">Imprimir / salvar em PDF</button></div>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Dados gerais</h2></div><span class="status-pill large-status {{ status_classes.get(event.status, 'status-gray') }}">{{ status_labels.get(event.status, event.status) }}</span></div>
+  <div class="event-facts">
+    <div class="fact"><span class="fact-icon">▦</span><div><small>Data</small><strong>{{ event.start_date[8:10] }}/{{ event.start_date[5:7] }}/{{ event.start_date[:4] }}{% if event.end_date and event.end_date != event.start_date %} a {{ event.end_date[8:10] }}/{{ event.end_date[5:7] }}/{{ event.end_date[:4] }}{% endif %}</strong></div></div>
+    <div class="fact"><span class="fact-icon">◷</span><div><small>Horário</small><strong>{{ event.start_time or 'A definir' }}{% if event.end_time %} – {{ event.end_time }}{% endif %}</strong></div></div>
+    <div class="fact"><span class="fact-icon">⌖</span><div><small>Local</small><strong>{{ event.venue or 'Não informado' }}</strong></div></div>
+    <div class="fact"><span class="fact-icon">♙</span><div><small>Público previsto / real</small><strong>{{ event.expected_attendees }}{% if closure and closure.actual_attendees is not none %} / {{ closure.actual_attendees }}{% endif %}</strong></div></div>
+  </div>
+  <div class="detail-two-col">
+    <div class="description-block"><h3>Setor organizador</h3><p>{{ event.department or 'Não informado' }}</p></div>
+    <div class="description-block"><h3>Categoria</h3><p>{{ event.event_type_other or event.event_type or 'Não informada' }}</p></div>
+    <div class="description-block"><h3>Solicitante</h3><p>{{ event.organizer_name }}{% if event.organizer_phone %} · {{ event.organizer_phone }}{% endif %}<br>{{ event.organizer_email }}</p></div>
+    <div class="description-block"><h3>Contato do evento</h3><p>{{ event.contact_email or 'Não informado' }}</p></div>
+    <div class="description-block"><h3>Autorizado por</h3><p>{{ event.authorized_by or 'Não informado' }}</p></div>
+    <div class="description-block"><h3>Centro de custo</h3><p>{{ event.cost_center or 'Não informado' }}</p></div>
+  </div>
+  <div class="description-block"><h3>Descrição / objetivo</h3><p class="preserve-lines">{{ event.description or 'Não informado' }}</p></div>
+  <div class="description-block"><h3>Tipo do evento</h3><div class="tag-list">{% for item in event_modes %}<span class="support-tag">{{ item }}</span>{% else %}<span class="muted">Não informado</span>{% endfor %}</div></div>
+  <div class="description-block"><h3>Serviços de apoio</h3><div class="tag-list">{% for item in event_support if item != "Outro" %}<span class="support-tag">{{ item }}</span>{% else %}<span class="muted">Não informado</span>{% endfor %}{% if event.support_other %}<span class="support-tag">Outro: {{ event.support_other }}</span>{% endif %}</div></div>
+  <div class="description-block"><h3>Local(is) solicitado(s)</h3><div class="tag-list">{% for item in event_venues if item != "Outro" %}<span class="support-tag">{{ item }}</span>{% else %}<span class="muted">Não informado</span>{% endfor %}{% if event.venue_other %}<span class="support-tag">Outro: {{ event.venue_other }}</span>{% endif %}</div></div>
+  <div class="description-block"><h3>Itens necessários</h3><div class="tag-list">{% for item in event_items if item != "Outro" %}<span class="support-tag">{{ item }}</span>{% else %}<span class="muted">Não informado</span>{% endfor %}{% if event.items_other %}<span class="support-tag">Outro: {{ event.items_other }}</span>{% endif %}</div></div>
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Checklist</h2><p>{{ completed }} de {{ tasks|length }} tarefa(s) concluída(s) ou dispensada(s) · {{ progress }}% concluído.</p></div></div>
+  {% if tasks %}<div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Tarefa</th><th>Categoria</th><th>Status</th><th>Prazo</th><th>Responsável</th></tr></thead>
+    <tbody>{% for t in tasks %}<tr><td>{{ t.title }}</td><td>{{ t.category or 'Geral' }}</td><td>{{ task_statuses.get(t.status, t.status) }}</td><td>{% if t.due_date %}{{ t.due_date[8:10] }}/{{ t.due_date[5:7] }}/{{ t.due_date[:4] }}{% else %}—{% endif %}</td><td>{{ t.assigned_to or 'A definir' }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<div class="empty-state compact"><h3>Nenhuma tarefa cadastrada</h3></div>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Orçamento</h2><p>Previsto: R$ {{ '%.2f'|format(budget_totals.estimated)|replace('.', ',') }} · Realizado: R$ {{ '%.2f'|format(budget_totals.actual)|replace('.', ',') }}</p></div></div>
+  {% if budget_items %}<div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Categoria</th><th>Previsto</th><th>Realizado</th></tr></thead>
+    <tbody>{% for b in budget_items %}<tr><td>{{ b.category }}</td><td>R$ {{ '%.2f'|format(b.estimated or 0)|replace('.', ',') }}</td><td>R$ {{ '%.2f'|format(b.actual or 0)|replace('.', ',') }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td><strong>Total</strong></td><td><strong>R$ {{ '%.2f'|format(budget_totals.estimated)|replace('.', ',') }}</strong></td><td><strong>R$ {{ '%.2f'|format(budget_totals.actual)|replace('.', ',') }}</strong></td></tr></tfoot>
+  </table></div>{% else %}<div class="empty-state compact"><h3>Nenhum item de orçamento cadastrado</h3></div>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Ocorrências</h2><p>{{ incidents|length }} registrada(s).</p></div></div>
+  {% if incidents %}<div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Data</th><th>Categoria</th><th>Título</th><th>Status</th><th>Responsável</th></tr></thead>
+    <tbody>{% for i in incidents %}<tr><td>{% if i.incident_date %}{{ i.incident_date[8:10] }}/{{ i.incident_date[5:7] }}/{{ i.incident_date[:4] }}{% else %}—{% endif %}</td><td>{{ i.category }}</td><td>{{ i.title }}</td><td>{{ incident_statuses.get(i.status, i.status) }}</td><td>{{ i.responsible or '—' }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<div class="empty-state compact"><h3>Nenhuma ocorrência registrada</h3></div>{% endif %}
+</section>
+
+{% if is_admin %}
+<section class="panel">
+  <div class="panel-heading"><div><h2>Horas da equipe</h2><p>Trabalhado: {{ work_totals.worked|round(1) if work_totals else 0 }}h · Extra no banco: {{ work_totals.extra_banco|round(1) if work_totals else 0 }}h · Extra paga: {{ work_totals.extra_pago_horas|round(1) if work_totals else 0 }}h (R$ {{ '%.2f'|format(work_totals.extra_pago_valor if work_totals else 0)|replace('.', ',') }})</p></div></div>
+  {% if work_entries %}<div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Data</th><th>Funcionário</th><th>Horas trabalhadas</th><th>Horas extras</th><th>Destino</th></tr></thead>
+    <tbody>{% for w in work_entries %}<tr><td>{{ w.work_date[8:10] }}/{{ w.work_date[5:7] }}/{{ w.work_date[:4] }}</td><td>{{ w.employee_name }}</td><td>{{ w.hours_worked|round(1) }}h</td><td>{{ w.extra_hours|round(1) }}h</td><td>{% if w.settlement_type == 'pago' %}Pago (R$ {{ '%.2f'|format(w.paid_amount or 0)|replace('.', ',') }}){% else %}Banco de horas{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<div class="empty-state compact"><h3>Nenhum lançamento de horas para este evento</h3></div>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Encerramento e avaliação</h2></div></div>
+  {% if closure %}
+  <div class="detail-two-col">
+    <div class="description-block"><h3>Resumo</h3><p class="preserve-lines">{{ closure.summary }}</p></div>
+    {% if closure.positives %}<div class="description-block"><h3>Pontos positivos</h3><p class="preserve-lines">{{ closure.positives }}</p></div>{% endif %}
+    {% if closure.issues %}<div class="description-block"><h3>Dificuldades</h3><p class="preserve-lines">{{ closure.issues }}</p></div>{% endif %}
+    {% if closure.improvements %}<div class="description-block"><h3>Melhorias sugeridas</h3><p class="preserve-lines">{{ closure.improvements }}</p></div>{% endif %}
+  </div>
+  {% else %}<div class="empty-state compact"><h3>Evento ainda não encerrado</h3></div>{% endif %}
+  {% if evaluation %}
+  <div class="description-block"><h3>Avaliação do solicitante</h3><p>Geral: {{ evaluation.rating_overall }}/5 · Setor de Eventos: {{ evaluation.rating_sector }}/5 · Comunicação: {{ evaluation.rating_communication }}/5 · Atendimento: {{ evaluation.rating_responsiveness }}/5 · Necessidades atendidas: {{ evaluation.rating_needs_met }}/5</p>
+  {% if evaluation.positive_feedback %}<p class="preserve-lines"><strong>Pontos positivos:</strong> {{ evaluation.positive_feedback }}</p>{% endif %}
+  {% if evaluation.improvement_suggestions %}<p class="preserve-lines"><strong>Sugestões:</strong> {{ evaluation.improvement_suggestions }}</p>{% endif %}
+  </div>
+  {% else %}<div class="empty-state compact"><h3>Sem resposta de avaliação do solicitante</h3></div>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Anexos</h2><p>{{ attachments|length }} arquivo(s).</p></div></div>
+  {% if attachments %}<div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Arquivo</th><th>Categoria</th><th>Enviado em</th><th>Por</th></tr></thead>
+    <tbody>{% for a in attachments %}<tr><td>{{ a.original_name }}</td><td>{{ a.category }}</td><td>{{ a.uploaded_at[8:10] }}/{{ a.uploaded_at[5:7] }}/{{ a.uploaded_at[:4] }}</td><td>{{ a.uploaded_by or '—' }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<div class="empty-state compact"><h3>Nenhum anexo enviado</h3></div>{% endif %}
+</section>
+
+<div class="report-print-footer">Centro Universitário FMABC · Gestão de Eventos · Relatório gerado automaticamente pelo sistema — os dados refletem a situação no momento da geração.</div>
+
+<style>
+.report-print-header{display:none}
+.report-print-footer{display:none}
+@media print{
+  @page{size:A4;margin:14mm 12mm}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  .sidebar,.topbar,.site-footer,.report-actions-row,.flash-stack,.event-tabs,.detail-back,.back-link,.appearance-bar{display:none!important}
+  .app-shell{display:block!important}
+  .main-area{margin-left:0!important;width:100%!important}
+  .page-content{padding:0!important;max-width:none!important}
+  .page-heading{display:none!important}
+  .report-print-header{display:flex!important;align-items:center;gap:14px;padding:0 0 12px;margin:0 0 16px;border-bottom:2px solid var(--green-dark,#2c5e55)}
+  .report-print-logo{height:42px;width:auto;flex:0 0 auto}
+  .report-print-titles{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+  .report-print-titles strong{font-size:15px;color:var(--navy,#4b5172)}
+  .report-print-titles span{font-size:10px;color:#5b6b7c}
+  .report-print-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:9px;color:#5b6b7c;text-align:right;white-space:nowrap}
+  .report-print-footer{display:block!important;margin-top:16px;padding-top:8px;border-top:1px solid #d7e0e8;font-size:8px;color:#8a97a3;break-inside:avoid}
+  .panel{box-shadow:none!important;border:1px solid #bbb!important;break-inside:avoid}
+  .panel-heading{break-after:avoid}
+  .data-table{font-size:9px!important}
+  .data-table th,.data-table td{padding:5px!important}
+  .data-table thead{display:table-header-group}
+  .data-table tr{break-inside:avoid}
+  .data-table tbody tr:nth-child(even) td{background:#f5f8f6!important}
+  .status-pill{border:1px solid rgba(0,0,0,.15)}
+  .tag-list{gap:3px!important}
+  .support-tag{font-size:8px!important;padding:2px 5px!important}
+}
+</style>
+<script>
+(function () {
+  var el = document.getElementById('report-print-generated');
+  if (!el) return;
+  var now = new Date();
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  el.textContent = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + now.getFullYear() + ' às ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+})();
+</script>
+{% endblock %}

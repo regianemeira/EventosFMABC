@@ -11,4 +11,5 @@
   {% endif %}
   <a class="event-tab" href="{{ url_for('event_detail', event_id=event.id) }}#anexos">Anexos{% if tab_info.attachments %} <span class="event-tab-badge">{{ tab_info.attachments }}</span>{% endif %}</a>
   <a class="event-tab" href="{{ url_for('event_detail', event_id=event.id) }}#linha-do-tempo">Linha do tempo</a>
+  <a class="event-tab {% if request.endpoint == 'event_full_report' %}is-active{% endif %}" href="{{ url_for('event_full_report', event_id=event.id) }}" {% if request.endpoint == 'event_full_report' %}aria-current="page"{% endif %}>🖨 Relatório completo</a>
 </nav>

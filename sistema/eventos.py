@@ -314,6 +314,70 @@ def event_detail(event_id):
     )
 
 
+@app.get("/eventos/<int:event_id>/relatorio")
+@login_required
+def event_full_report(event_id):
+    """Relatório completo do evento, pronto para impressão: dados gerais, checklist,
+    orçamento, ocorrências, avaliação, anexos e (para admin) horas da equipe que trabalhou."""
+    event = get_event_or_404(event_id)
+    db = get_db()
+    is_admin = session.get("user_role") == "admin"
+
+    tasks = db.execute("SELECT * FROM tasks WHERE event_id=? ORDER BY sort_order, id", (event_id,)).fetchall()
+    completed = sum(1 for task in tasks if task["status"] in TASK_DONE_STATUSES)
+    progress = round((completed / len(tasks)) * 100) if tasks else 0
+
+    budget_items = db.execute(
+        """SELECT COALESCE(NULLIF(category,''),'Outros') AS category,
+               COALESCE(SUM(estimated_amount),0) AS estimated, COALESCE(SUM(actual_amount),0) AS actual
+           FROM event_budget_items WHERE event_id=? AND status<>'cancelado' GROUP BY category ORDER BY category""",
+        (event_id,),
+    ).fetchall()
+    budget_totals = {
+        "estimated": sum(float(r["estimated"] or 0) for r in budget_items),
+        "actual": sum(float(r["actual"] or 0) for r in budget_items),
+    }
+
+    incidents = db.execute(
+        """SELECT * FROM event_incidents WHERE event_id=?
+           ORDER BY CASE status WHEN 'aberta' THEN 1 WHEN 'em_tratamento' THEN 2 ELSE 3 END, incident_date DESC, id DESC""",
+        (event_id,),
+    ).fetchall()
+
+    closure = db.execute("SELECT * FROM event_closures WHERE event_id=?", (event_id,)).fetchone()
+    evaluation = db.execute("SELECT * FROM event_evaluations WHERE event_id=? AND responded_at IS NOT NULL", (event_id,)).fetchone()
+
+    attachments = db.execute(
+        "SELECT * FROM event_attachments WHERE event_id=? ORDER BY uploaded_at DESC, id DESC", (event_id,)
+    ).fetchall()
+
+    work_entries = []
+    work_totals = None
+    if is_admin:
+        work_entries = db.execute(
+            """SELECT w.*, e.name AS employee_name FROM work_entries w JOIN employees e ON e.id=w.employee_id
+               WHERE w.event_id=? ORDER BY w.work_date, w.id""",
+            (event_id,),
+        ).fetchall()
+        work_totals = {
+            "worked": round(sum(e["hours_worked"] for e in work_entries), 2),
+            "extra_banco": round(sum(e["extra_hours"] for e in work_entries if e["settlement_type"] == "banco"), 2),
+            "extra_pago_horas": round(sum(e["extra_hours"] for e in work_entries if e["settlement_type"] == "pago"), 2),
+            "extra_pago_valor": round(sum((e["paid_amount"] or 0) for e in work_entries if e["settlement_type"] == "pago"), 2),
+        }
+
+    return render_template(
+        "event_full_report.html", event=event, tasks=tasks, completed=completed, progress=progress,
+        task_statuses=TASK_STATUSES, event_support=event_support(event), event_modes=event_modes(event),
+        event_venues=event_venues(event), event_items=event_requested_items(event),
+        budget_items=budget_items, budget_totals=budget_totals,
+        incidents=incidents, incident_statuses={"aberta": "Aberta", "em_tratamento": "Em tratamento", "resolvida": "Resolvida"},
+        closure=closure, evaluation=evaluation, attachments=attachments,
+        work_entries=work_entries, work_totals=work_totals, is_admin=is_admin,
+        status_labels=STATUS_LABELS,
+    )
+
+
 def _next_tasks(db, event, limit: int = 4) -> list[dict]:
     periods = checklist_periods(event)
     rows = db.execute("""SELECT * FROM tasks WHERE event_id=? AND status NOT IN ('concluida','nao_se_aplica')
