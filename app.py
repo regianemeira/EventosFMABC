@@ -10,6 +10,7 @@ O código fica na pasta `sistema/`:
     comunicacao.py  agenda por área, comunicados e importação de planilha
     admin.py        cadastros de apoio, equipe e espaços
     notificacoes.py e-mails, pedidos de informação, lembretes e calendário (.ics)
+    horas.py        banco de horas e horas extras da equipe que trabalha nos eventos
 
 Iniciar: python app.py   (ou waitress-serve app:app)
 """
@@ -24,6 +25,7 @@ from sistema.relatorios import *  # noqa: F401,F403
 from sistema.comunicacao import *  # noqa: F401,F403
 from sistema.admin import *  # noqa: F401,F403
 from sistema.notificacoes import *  # noqa: F401,F403
+from sistema.horas import *  # noqa: F401,F403
 
 with app.app_context():
     init_db()
