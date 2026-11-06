@@ -614,7 +614,46 @@ CREATE TABLE IF NOT EXISTS event_attachments (
     uploaded_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_event_attachments_event ON event_attachments(event_id, uploaded_at DESC);
+CREATE TABLE IF NOT EXISTS employees (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    role TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS work_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL REFERENCES employees(id),
+    event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+    work_date TEXT NOT NULL,
+    start_time TEXT,
+    end_time TEXT,
+    hours_worked REAL NOT NULL,
+    standard_hours REAL NOT NULL,
+    extra_hours REAL NOT NULL,
+    is_day_off_rule INTEGER NOT NULL DEFAULT 0,
+    settlement_type TEXT NOT NULL DEFAULT 'banco',
+    hourly_rate REAL,
+    paid_amount REAL,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_work_entries_employee ON work_entries(employee_id, work_date);
+CREATE INDEX IF NOT EXISTS idx_work_entries_event ON work_entries(event_id);
+CREATE TABLE IF NOT EXISTS time_off_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL REFERENCES employees(id),
+    off_date TEXT NOT NULL,
+    hours REAL NOT NULL,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_time_off_employee ON time_off_entries(employee_id, off_date);
 """
+
+STANDARD_WORKDAY_HOURS = 8.0
 
 BUDGET_CATEGORIES = ["Alimentação", "Estrutura", "Audiovisual", "Materiais", "Comunicação", "Transporte",
                      "Hospedagem", "Serviços", "Equipe / mão de obra", "Tecnologia", "Taxas", "Outros"]
@@ -780,6 +819,55 @@ def mark_event_messages_read_by_requester(db, event_id: int) -> None:
         "UPDATE event_messages SET read_by_requester=1 WHERE event_id=? AND sender_type='equipe' AND read_by_requester=0",
         (event_id,),
     )
+
+
+# ---------------------------------------------------------------------------
+# Banco de horas / horas extras da equipe que trabalha nos eventos
+# ---------------------------------------------------------------------------
+
+def standard_hours_for_date(work_date: str) -> float:
+    """Jornada padrão considerada para o dia: 8h em dia útil (seg-sex), 0h no fim de semana
+    (sábado/domingo) — qualquer hora trabalhada no fim de semana já conta como hora extra."""
+    weekday = date.fromisoformat(work_date).weekday()  # 0=segunda ... 6=domingo
+    return 0.0 if weekday >= 5 else STANDARD_WORKDAY_HOURS
+
+
+def compute_extra_hours(hours_worked: float, standard_hours: float) -> float:
+    return round(max(0.0, hours_worked - standard_hours), 2)
+
+
+def employee_balance(db, employee_id: int) -> float:
+    """Saldo atual do banco de horas: horas extras lançadas como 'banco' menos folgas já tiradas."""
+    banked = db.execute(
+        "SELECT COALESCE(SUM(extra_hours),0) FROM work_entries WHERE employee_id=? AND settlement_type='banco'",
+        (employee_id,),
+    ).fetchone()[0]
+    taken = db.execute(
+        "SELECT COALESCE(SUM(hours),0) FROM time_off_entries WHERE employee_id=?", (employee_id,)
+    ).fetchone()[0]
+    return round((banked or 0) - (taken or 0), 2)
+
+
+def employee_summary_rows(db) -> list[dict]:
+    """Uma linha por funcionário ativo: saldo de banco de horas e total pago em dinheiro."""
+    employees = db.execute("SELECT * FROM employees WHERE active=1 ORDER BY name").fetchall()
+    rows = []
+    for emp in employees:
+        paid_total = db.execute(
+            "SELECT COALESCE(SUM(paid_amount),0) FROM work_entries WHERE employee_id=? AND settlement_type='pago'",
+            (emp["id"],),
+        ).fetchone()[0]
+        extra_total = db.execute(
+            "SELECT COALESCE(SUM(extra_hours),0) FROM work_entries WHERE employee_id=?", (emp["id"],)
+        ).fetchone()[0]
+        rows.append({
+            "id": emp["id"], "name": emp["name"], "role": emp["role"],
+            "balance": employee_balance(db, emp["id"]),
+            "extra_total": round(extra_total or 0, 2),
+            "paid_total": round(paid_total or 0, 2),
+        })
+    return rows
+
 
 def seed_venues(db: sqlite3.Connection) -> None:
     """Primeira carga do cadastro de espaços a partir da lista fixa usada até a versão anterior."""
