@@ -42,6 +42,7 @@
   {%- elif name == 'mail' %}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>
   {%- elif name == 'chart' %}<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
   {%- elif name == 'book' %}<path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3z"/><path d="M5 17a3 3 0 013-3h11"/>
+  {%- elif name == 'clock' %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>
   {%- elif name == 'gear' %}<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>
   {%- elif name == 'logout' %}<path d="M15 4h4a1 1 0 011 1v14a1 1 0 01-1 1h-4"/><path d="M10 17l5-5-5-5M15 12H4"/>
   {%- elif name == 'collapse' %}<path d="M15 6l-6 6 6 6"/>
@@ -70,6 +71,7 @@
       <a class="nav-link {% if active %}active{% endif %}" href="{{ href }}" title="{{ label }}" {% if active %}aria-current="page"{% endif %}>{{ icon(name) }}<span class="nav-label">{{ label }}</span>{% if name == 'events' and new_event_alert_count %}<span class="nav-badge-alert" title="{{ new_event_alert_count }} nova(s) solicitação(ões) aguardando triagem">{{ new_event_alert_count }}</span>{% endif %}</a>
       {% endfor %}
       {% if session.get("user_role") == "admin" %}
+      <a class="nav-link {% if ep in ['time_bank_hub', 'time_bank_employee', 'time_bank_report', 'event_time_bank'] %}active{% endif %}" href="{{ url_for('time_bank_hub') }}" title="Banco de Horas">{{ icon('clock') }}<span class="nav-label">Banco de Horas</span></a>
       <a class="nav-link {% if ep in ['venue_management', 'support_catalog_management', 'team_management'] %}active{% endif %}" href="{{ url_for('venue_management') }}" title="Configurações">{{ icon('gear') }}<span class="nav-label">Configurações</span></a>
       {% endif %}
     </nav>

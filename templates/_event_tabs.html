@@ -6,6 +6,9 @@
   <a class="event-tab {% if request.endpoint == 'event_budget' %}is-active{% endif %}" href="{{ url_for('event_budget', event_id=event.id) }}" {% if request.endpoint == 'event_budget' %}aria-current="page"{% endif %}>Orçamento</a>
   <a class="event-tab {% if request.endpoint == 'event_incidents' %}is-active{% endif %}" href="{{ url_for('event_incidents', event_id=event.id) }}" {% if request.endpoint == 'event_incidents' %}aria-current="page"{% endif %}>Ocorrências</a>
   <a class="event-tab {% if request.endpoint == 'event_messages_view' %}is-active{% endif %}" href="{{ url_for('event_messages_view', event_id=event.id) }}" {% if request.endpoint == 'event_messages_view' %}aria-current="page"{% endif %}>Mensagens{% if tab_info.unread_messages %} <span class="event-tab-badge is-alert">{{ tab_info.unread_messages }}</span>{% endif %}</a>
+  {% if session.get('user_role') == 'admin' %}
+  <a class="event-tab {% if request.endpoint == 'event_time_bank' %}is-active{% endif %}" href="{{ url_for('event_time_bank', event_id=event.id) }}" {% if request.endpoint == 'event_time_bank' %}aria-current="page"{% endif %}>Horas da equipe</a>
+  {% endif %}
   <a class="event-tab" href="{{ url_for('event_detail', event_id=event.id) }}#anexos">Anexos{% if tab_info.attachments %} <span class="event-tab-badge">{{ tab_info.attachments }}</span>{% endif %}</a>
   <a class="event-tab" href="{{ url_for('event_detail', event_id=event.id) }}#linha-do-tempo">Linha do tempo</a>
 </nav>

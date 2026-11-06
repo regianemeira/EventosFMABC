@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Horas da equipe — {{ event.title }}{% endblock %}
+{% block content %}
+<div class="detail-back"><a class="back-link" href="{{ url_for('event_detail',event_id=event.id) }}">← Voltar ao evento</a><span class="detail-protocol">{{ event.protocol }}</span></div>
+<div class="page-heading heading-row">
+  <div>
+    <div class="eyebrow">BANCO DE HORAS</div>
+    <h1>Horas da equipe neste evento</h1>
+    <p>{{ event.title }} · Registre quem trabalhou e por quanto tempo. Em dia útil, o que passar de {{ standard_hours|int }}h vira hora extra; no fim de semana, qualquer hora conta.</p>
+  </div>
+  <a class="btn btn-secondary" href="{{ url_for('time_bank_hub') }}">Banco de Horas geral <span>→</span></a>
+</div>
+{% include '_event_tabs.html' %}
+
+<div class="metric-grid hours-summary-grid">
+  <div class="metric-card"><span class="metric-label">Total de horas trabalhadas</span><strong class="metric-value">{{ totals.worked|round(1) }}h</strong></div>
+  <div class="metric-card"><span class="metric-label">Extras no banco de horas</span><strong class="metric-value">{{ totals.extra_banco|round(1) }}h</strong></div>
+  <div class="metric-card"><span class="metric-label">Extras pagas em dinheiro</span><strong class="metric-value">{{ totals.extra_pago_horas|round(1) }}h</strong><span class="metric-sub">R$ {{ '%.2f'|format(totals.extra_pago_valor) }}</span></div>
+</div>
+
+<section class="panel hours-form-panel">
+  <div class="panel-heading"><div><h2>Lançar horas trabalhadas neste evento</h2></div></div>
+  <form method="post" class="hours-entry-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="event_id" value="{{ event.id }}">
+    <div class="field"><label for="h-employee">Funcionário</label>
+      <select id="h-employee" name="employee_id">
+        <option value="">+ Novo funcionário (digite abaixo)</option>
+        {% for e in all_employees %}<option value="{{ e.id }}">{{ e.name }}{% if e.role %} — {{ e.role }}{% endif %}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field"><label for="h-new-name">Nome do novo funcionário</label><input id="h-new-name" name="new_employee_name" placeholder="Só se não estiver na lista acima"></div>
+    <div class="field"><label for="h-date">Dia trabalhado</label><input id="h-date" type="date" name="work_date" required value="{{ event.start_date }}"></div>
+    <div class="field-row">
+      <div class="field"><label for="h-start">Horário de início</label><input id="h-start" type="time" name="start_time"></div>
+      <div class="field"><label for="h-end">Horário de término</label><input id="h-end" type="time" name="end_time"></div>
+    </div>
+    <div class="field"><label for="h-hours">Ou total de horas trabalhadas</label><input id="h-hours" name="hours_worked" placeholder="Ex.: 12"></div>
+    <div class="field"><label for="h-settlement">O que fazer com a hora extra?</label>
+      <select id="h-settlement" name="settlement_type">
+        <option value="banco">Creditar no banco de horas</option>
+        <option value="pago">Pagar em dinheiro</option>
+      </select>
+    </div>
+    <div class="field" id="h-rate-field" hidden><label for="h-rate">Valor de cada hora (R$)</label><input id="h-rate" name="hourly_rate"></div>
+    <div class="field"><label for="h-notes">Observações (opcional)</label><input id="h-notes" name="notes" maxlength="500"></div>
+    <button class="btn btn-primary btn-wide" type="submit">Lançar horas <span>→</span></button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Lançamentos deste evento</h2><p>{{ entries|length }} registro(s).</p></div></div>
+  <div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Funcionário</th><th>Data</th><th>Horas</th><th>Extra</th><th>Destino</th><th></th></tr></thead>
+    <tbody>
+      {% for w in entries %}
+      <tr>
+        <td><a href="{{ url_for('time_bank_employee', employee_id=w.employee_id) }}">{{ w.employee_name }}</a></td>
+        <td class="date-cell">{{ w.work_date[8:10] }}/{{ w.work_date[5:7] }}/{{ w.work_date[:4] }}</td>
+        <td>{{ w.hours_worked|round(1) }}h</td>
+        <td>{% if w.extra_hours %}<strong>{{ w.extra_hours|round(1) }}h</strong>{% else %}—{% endif %}</td>
+        <td>{% if w.settlement_type == 'pago' %}<span class="status-pill status-amber">Pago · R$ {{ '%.2f'|format(w.paid_amount or 0) }}</span>{% else %}<span class="status-pill status-blue">Banco de horas</span>{% endif %}</td>
+        <td><form method="post" action="{{ url_for('delete_work_entry') }}" class="inline-action-form" onsubmit="return confirm('Excluir este lançamento?');"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="entry_id" value="{{ w.id }}"><input type="hidden" name="back" value="{{ url_for('event_time_bank', event_id=event.id) }}"><button class="btn btn-danger btn-small" type="submit">Excluir</button></form></td>
+      </tr>
+      {% else %}<tr><td colspan="6"><div class="empty-state compact"><h3>Ninguém lançado ainda</h3><p>Registre acima quem trabalhou neste evento.</p></div></td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+<script>
+(function(){
+  var sel=document.getElementById('h-settlement'),field=document.getElementById('h-rate-field'),rate=document.getElementById('h-rate');
+  function sync(){var paid=sel.value==='pago';field.hidden=!paid;if(rate)rate.required=paid;}
+  if(sel){sel.addEventListener('change',sync);sync();}
+})();
+</script>
+{% endblock %}

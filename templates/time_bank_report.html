@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Relatório — Banco de Horas{% endblock %}
+{% block content %}
+<div class="page-heading heading-row report-filter-panel-heading-wrap">
+  <div><div class="eyebrow">BANCO DE HORAS</div><h1>Relatório de horas e horas extras</h1><p>Saldo de cada funcionário e detalhamento das horas extras pagas em dinheiro no período — pronto para a folha de pagamento.</p></div>
+  <a class="back-link" href="{{ url_for('time_bank_hub') }}">← Voltar</a>
+</div>
+
+<div class="report-print-header">
+  <img class="report-print-logo" src="{{ url_for('static', filename='logo-fmabc.png') }}" alt="FMABC Centro Universitário">
+  <div class="report-print-titles">
+    <strong>Banco de Horas e Horas Extras</strong>
+    <span>Saldo por funcionário e horas pagas em dinheiro</span>
+  </div>
+  <div class="report-print-meta">
+    <span>Período: {{ start[8:10] }}/{{ start[5:7] }}/{{ start[:4] }} a {{ end[8:10] }}/{{ end[5:7] }}/{{ end[:4] }}{% if employee_id %} · Funcionário selecionado{% endif %}</span>
+    <span>Gerado em <span id="report-print-generated"></span></span>
+  </div>
+</div>
+
+<div class="report-actions-row"><button class="btn btn-secondary" type="button" onclick="window.print()">Imprimir / salvar em PDF</button></div>
+
+<section class="panel report-filter-panel">
+  <div class="panel-heading"><div><h2>Filtros</h2><p>O período filtra as horas extras lançadas; o saldo mostrado é o saldo atual (até hoje).</p></div></div>
+  <form method="get" class="report-filter-form">
+    <div class="field"><label for="inicio">De</label><input id="inicio" name="inicio" type="date" value="{{ start }}"></div>
+    <div class="field"><label for="fim">Até</label><input id="fim" name="fim" type="date" value="{{ end }}"></div>
+    <div class="field"><label for="funcionario">Funcionário</label>
+      <select id="funcionario" name="funcionario">
+        <option value="">Todos os funcionários</option>
+        {% for e in all_employees %}<option value="{{ e.id }}" {% if employee_id == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="report-filter-buttons"><button class="btn btn-primary" type="submit">Atualizar</button><a class="text-link" href="{{ url_for('time_bank_report') }}">Limpar filtros</a></div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Saldo atual do banco de horas</h2><p>Por funcionário, até hoje.</p></div></div>
+  <div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Funcionário</th><th>Função</th><th>Saldo</th></tr></thead>
+    <tbody>{% for r in balance_rows %}<tr><td>{{ r.name }}</td><td>{{ r.role or '—' }}</td><td><strong>{{ r.balance|round(1) }}h</strong></td></tr>{% else %}<tr><td colspan="3"><div class="empty-state compact"><h3>Nenhum funcionário</h3></div></td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+
+<section class="report-summary-grid">
+  <article class="report-stat-card"><span>Horas extras no período (banco)</span><strong>{{ banked_hours_total|round(1) }}h</strong><small>Creditadas no banco de horas</small></article>
+  <article class="report-stat-card"><span>Horas extras pagas em dinheiro</span><strong>{{ paid_hours_total|round(1) }}h</strong><small>No período selecionado</small></article>
+  <article class="report-stat-card"><span>Total a pagar / pago</span><strong>R$ {{ '%.2f'|format(paid_total) }}</strong><small>Soma dos lançamentos pagos no período</small></article>
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Horas extras pagas em dinheiro</h2><p>Detalhamento para a folha de pagamento — {{ paid_rows|length }} lançamento(s).</p></div></div>
+  <div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Data</th><th>Funcionário</th><th>Evento</th><th>Horas extras</th><th>Valor/hora</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for w in paid_rows %}<tr>
+        <td class="date-cell">{{ w.work_date[8:10] }}/{{ w.work_date[5:7] }}/{{ w.work_date[:4] }}</td>
+        <td>{{ w.employee_name }}</td>
+        <td>{{ w.event_title or '—' }}</td>
+        <td>{{ w.extra_hours|round(1) }}h</td>
+        <td>R$ {{ '%.2f'|format(w.hourly_rate or 0) }}</td>
+        <td><strong>R$ {{ '%.2f'|format(w.paid_amount or 0) }}</strong></td>
+      </tr>{% else %}<tr><td colspan="6"><div class="empty-state compact"><h3>Nenhum lançamento pago nesse período</h3></div></td></tr>{% endfor %}
+    </tbody>
+    {% if paid_rows %}<tfoot><tr><td colspan="3"><strong>Total</strong></td><td><strong>{{ paid_hours_total|round(1) }}h</strong></td><td></td><td><strong>R$ {{ '%.2f'|format(paid_total) }}</strong></td></tr></tfoot>{% endif %}
+  </table></div>
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><h2>Horas extras creditadas no banco de horas</h2><p>Detalhamento — {{ banked_rows|length }} lançamento(s) no período.</p></div></div>
+  <div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Data</th><th>Funcionário</th><th>Evento</th><th>Horas trabalhadas</th><th>Extra creditada</th></tr></thead>
+    <tbody>
+      {% for w in banked_rows %}<tr>
+        <td class="date-cell">{{ w.work_date[8:10] }}/{{ w.work_date[5:7] }}/{{ w.work_date[:4] }}</td>
+        <td>{{ w.employee_name }}</td>
+        <td>{{ w.event_title or '—' }}</td>
+        <td>{{ w.hours_worked|round(1) }}h</td>
+        <td><strong>{{ w.extra_hours|round(1) }}h</strong></td>
+      </tr>{% else %}<tr><td colspan="5"><div class="empty-state compact"><h3>Nenhum lançamento nesse período</h3></div></td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+<div class="report-print-footer">Centro Universitário FMABC · Gestão de Eventos · Relatório gerado automaticamente pelo sistema — os dados refletem a situação no momento da geração.</div>
+
+<style>
+.report-print-header{display:none}
+.report-print-footer{display:none}
+@media print{
+  @page{size:A4;margin:14mm 12mm}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  .sidebar,.topbar,.site-footer,.report-filter-panel,.report-actions-row,.flash-stack,.event-tabs,.section-header,.back-link{display:none!important}
+  .app-shell{display:block!important}
+  .main-area{margin-left:0!important;width:100%!important}
+  .page-content{padding:0!important;max-width:none!important}
+  .report-print-header{display:flex!important;align-items:center;gap:14px;padding:0 0 12px;margin:0 0 16px;border-bottom:2px solid var(--green-dark,#2c5e55)}
+  .report-print-logo{height:42px;width:auto;flex:0 0 auto}
+  .report-print-titles{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+  .report-print-titles strong{font-size:15px;color:var(--navy,#4b5172)}
+  .report-print-titles span{font-size:10px;color:#5b6b7c}
+  .report-print-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:9px;color:#5b6b7c;text-align:right;white-space:nowrap}
+  .report-print-footer{display:block!important;margin-top:16px;padding-top:8px;border-top:1px solid #d7e0e8;font-size:8px;color:#8a97a3;break-inside:avoid}
+  .report-summary-grid{grid-template-columns:repeat(3,1fr)!important;gap:6px!important;break-inside:avoid}
+  .report-stat-card{box-shadow:none!important;padding:8px!important;break-inside:avoid;border:1px solid #c9d3cc!important}
+  .panel{box-shadow:none!important;border:1px solid #bbb!important}
+  .panel-heading{break-after:avoid}
+  .data-table{font-size:9px!important}
+  .data-table th,.data-table td{padding:5px!important}
+  .data-table thead{display:table-header-group}
+  .data-table tr{break-inside:avoid}
+  .data-table tbody tr:nth-child(even) td{background:#f5f8f6!important}
+  .status-pill{border:1px solid rgba(0,0,0,.15)}
+}
+</style>
+<script>
+(function () {
+  var el = document.getElementById('report-print-generated');
+  if (!el) return;
+  var now = new Date();
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  el.textContent = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + now.getFullYear() + ' às ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+})();
+</script>
+{% endblock %}
