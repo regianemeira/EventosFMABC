@@ -1196,3 +1196,17 @@ html.nav-collapsed .logout-button{justify-content:center!important;width:48px;pa
 :root[data-theme="dark"] .appearance-font-label{color:#b7bed2}
 @media print{.appearance-bar{display:none!important}}
 @media(max-width:650px){.appearance-bar{right:10px;bottom:10px}}
+
+/* Banco de Horas */
+.hours-summary-grid{grid-template-columns:repeat(2,minmax(220px,1fr))}
+.metric-sub{display:block;font-size:calc(9.5px * var(--fmabc-font-scale,1));color:#8a96a3;margin-top:2px}
+.hours-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:18px}
+.hours-form-panel{display:flex;flex-direction:column;gap:14px}
+.hours-entry-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.hours-entry-form .field{grid-column:span 2}
+.hours-entry-form .field-row{grid-column:span 2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.hours-entry-form .form-hint{grid-column:span 2;margin:0;font-size:calc(9.5px * var(--fmabc-font-scale,1));color:#8a96a3}
+.hours-entry-form button{grid-column:span 2}
+.hours-roster-heading{margin-top:6px;padding-top:14px;border-top:1px solid var(--line)}
+.hours-row-debit td{background:#fff6f6}
+@media(max-width:900px){.hours-layout{grid-template-columns:1fr}}
