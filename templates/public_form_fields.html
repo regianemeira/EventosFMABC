@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Formulário público{% endblock %}
+{% block content %}
+{% with section='configuracoes' %}{% include '_section_tabs.html' %}{% endwith %}
+<div class="page-heading heading-row"><div><p>Adicione novas perguntas ao formulário público de solicitação de eventos. As 17 perguntas originais do formulário são fixas e não podem ser editadas ou removidas por aqui — apenas perguntas novas, adicionadas aqui, podem ser alteradas ou excluídas.</p></div><span class="count-label">{{ fields|selectattr('active')|list|length }} ATIVAS</span></div>
+<div class="admin-config-grid support-catalog-layout">
+  <section class="panel config-create-panel">
+    <div class="panel-heading"><div><h2>Nova pergunta</h2><p>Ela aparece em uma seção "Informações adicionais", depois da pergunta 17, no formulário de solicitação.</p></div></div>
+    <form method="post" class="stack-form config-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="create">
+      <label for="new-label">Texto da pergunta</label><input id="new-label" name="label" required maxlength="200" placeholder="Ex.: Qual o nome do patrocinador do evento?">
+      <label for="new-field-type">Tipo de resposta</label><select id="new-field-type" name="field_type" class="pff-field-type">{% for value, label in field_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+      <label class="pff-options" hidden for="new-options">Opções da lista</label><textarea id="new-options" name="options" class="pff-options" hidden rows="2" placeholder="Separe por vírgula ou linha: Opção 1, Opção 2, Opção 3"></textarea>
+      <label class="tpl-check"><input type="checkbox" name="required"> Pergunta obrigatória</label>
+      <button class="btn btn-primary btn-wide" type="submit">Adicionar pergunta</button>
+    </form>
+  </section>
+  <section class="panel config-list-panel">
+    <div class="panel-heading"><div><h2>Perguntas adicionadas</h2><p>Use as setas para reordenar: a ordem aqui é a ordem em que aparecem no formulário.</p></div></div>
+    <div class="config-record-list">
+    {% for item in fields %}
+      <article class="config-record {% if not item.active %}config-record-inactive{% endif %}">
+        <div class="config-record-top"><div><h3>{{ item.label }}</h3><span class="config-trigger">{{ field_types.get(item.field_type, item.field_type) }}{% if item.required %} · obrigatória{% else %} · opcional{% endif %}{% if item.field_type == 'select' and item.options_list %} · opções: {{ item.options_list|join(', ') }}{% endif %}</span></div></div>
+        <div class="config-actions">
+          <form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="move_up"><input type="hidden" name="field_id" value="{{ item.id }}"><button class="btn btn-secondary btn-small" type="submit" {% if loop.first %}disabled{% endif %}>↑ Mover para cima</button></form>
+          <form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="move_down"><input type="hidden" name="field_id" value="{{ item.id }}"><button class="btn btn-secondary btn-small" type="submit" {% if loop.last %}disabled{% endif %}>↓ Mover para baixo</button></form>
+          <form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="toggle"><input type="hidden" name="field_id" value="{{ item.id }}"><button class="btn btn-secondary btn-small" type="submit">{{ 'Inativar' if item.active else 'Ativar' }}</button></form>
+          <form method="post" onsubmit="return confirm('Remover esta pergunta do formulário? As respostas já recebidas continuam no histórico de cada evento.');"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="field_id" value="{{ item.id }}"><button class="btn btn-secondary btn-small" type="submit">Remover</button></form>
+        </div>
+      </article>
+    {% else %}<div class="empty-state">Nenhuma pergunta personalizada cadastrada ainda. O formulário público tem apenas as 17 perguntas originais.</div>{% endfor %}
+    </div>
+  </section>
+</div>
+<script>
+  document.querySelectorAll('.pff-field-type').forEach(sel => sel.addEventListener('change', () => {
+    document.querySelectorAll('.pff-options').forEach(el => el.hidden = sel.value !== 'select');
+  }));
+</script>
+{% endblock %}

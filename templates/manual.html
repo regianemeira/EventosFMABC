@@ -6,42 +6,61 @@
     <div class="manual-hero-copy">
       <div class="eyebrow">CENTRAL DE CONHECIMENTO</div>
       <h1>Manual de Eventos FMABC</h1>
-      <p>Consulte o Manual de Cerimonial e Eventos do Centro Universitário FMABC, edição de {{ manual_year }}. Faça uma pergunta para localizar os trechos relevantes ou leia o documento completo.</p>
-      <div class="manual-meta-row"><span class="manual-meta"><span>▤</span> {{ manual_pages }} páginas</span><span class="manual-meta"><span>▧</span> Documento institucional</span><span class="manual-meta"><span>⌕</span> Busca restrita ao manual</span></div>
+      <p>Converse com o assistente para tirar dúvidas sobre o Manual de Cerimonial e Eventos do Centro Universitário FMABC, edição de {{ manual_year }}. As respostas usam somente o conteúdo do documento oficial.</p>
+      <div class="manual-meta-row"><span class="manual-meta"><span>▤</span> {{ manual_pages }} páginas</span><span class="manual-meta"><span>▧</span> Documento institucional</span><span class="manual-meta"><span>⌕</span> Respostas restritas ao manual</span></div>
     </div>
     <div class="manual-hero-mark"><div class="manual-book-icon">▤</div><strong>ORIENTAÇÃO INSTITUCIONAL</strong><span>Consulta com indicação da página de origem</span></div>
   </section>
 
   <section class="manual-chat-panel panel">
-    <div class="panel-heading manual-chat-heading"><div><h2>Faça uma pergunta ao manual</h2><p>O sistema procura passagens no documento e informa as páginas para conferência.</p></div><span class="manual-online-dot"><i></i> Base local</span></div>
-    <form class="manual-search-form" action="{{ url_for('manual_center') }}" method="get">
-      <label for="manual-question">Sua pergunta</label>
-      <div class="manual-search-control"><textarea id="manual-question" name="q" rows="2" maxlength="350" placeholder="Ex.: Com quantos dias de antecedência devo solicitar suporte de TI?" required>{{ question }}</textarea><button class="btn btn-primary" type="submit">Consultar manual <span>→</span></button></div>
-      <small>As respostas são compostas por trechos recuperados do PDF original. Se o manual não trouxer orientação suficiente, o sistema informará isso.</small>
-    </form>
-    <div class="manual-suggestions"><span>Perguntas sugeridas:</span><a href="{{ url_for('manual_center', q='Qual a antecedência para solicitar suporte de TI?') }}">Prazo para suporte de TI</a><a href="{{ url_for('manual_center', q='Quais são as etapas de organização de um evento?') }}">Etapas do evento</a><a href="{{ url_for('manual_center', q='Qual a capacidade dos espaços da FMABC?') }}">Capacidade dos espaços</a><a href="{{ url_for('manual_center', q='Como deve ser organizado o cerimonial de colação de grau?') }}">Colação de grau</a></div>
-  </section>
+    <div class="panel-heading manual-chat-heading">
+      <div><h2>Assistente do manual</h2><p>Pergunte em linguagem natural; as respostas são sempre baseadas nos trechos reais do documento.</p></div>
+      <span class="manual-online-dot" id="manual-chat-status"><i></i> Base local</span>
+    </div>
 
-  {% if question %}
-  <section class="manual-answer-section" aria-live="polite">
-    <div class="manual-answer-intro"><div class="manual-answer-avatar">FM</div><div><span class="manual-answer-label">CONSULTA AO MANUAL</span><h2>{{ answer_message }}</h2></div></div>
-    {% if manual_results %}
-      <div class="manual-results-list">
-      {% for result in manual_results %}
-        <article class="manual-result-card">
-          <div class="manual-result-top"><span class="manual-result-source">Trecho localizado no documento</span><span class="manual-page-badge">Página {{ result.page }} do PDF</span></div>
-          <div class="manual-result-section">{{ result.section }}</div>
-          <blockquote>{{ result.text }}</blockquote>
-          <div class="manual-result-footer"><span>{{ result.source }}</span><a href="{{ manual_pdf_url }}{{ result.pdf_anchor }}" target="_blank" rel="noopener">Abrir nesta página <span>↗</span></a></div>
-        </article>
-      {% endfor %}
+    <div class="manual-chat-messages" id="manual-chat-messages">
+      <div class="manual-msg bot">
+        <div class="manual-msg-avatar">FM</div>
+        <div class="manual-msg-body"><div class="manual-msg-bubble">Olá! Posso ajudar a localizar orientações no Manual de Cerimonial e Eventos da FMABC — prazos, etapas, capacidade dos espaços e outros temas do documento. O que você quer saber?</div></div>
       </div>
-      <p class="manual-grounding-note">Para manter a consulta fiel ao documento, esta versão apresenta trechos recuperados do manual, sem acrescentar regras externas. Leia o contexto na página original antes de tomar decisões quando houver ambiguidades.</p>
-    {% else %}
-      <div class="manual-no-answer"><strong>Orientação não localizada</strong><p>O sistema não encontrou correspondência suficiente entre a pergunta e o texto indexado do manual. Isso não comprova que o assunto esteja ausente do PDF. Use palavras diferentes ou consulte o documento integral.</p><a class="btn btn-secondary" href="#manual-completo">Consultar o documento completo</a></div>
-    {% endif %}
+      {% if question %}
+      <div class="manual-msg user"><div class="manual-msg-body"><div class="manual-msg-bubble">{{ question }}</div></div></div>
+      <div class="manual-msg bot">
+        <div class="manual-msg-avatar">FM</div>
+        <div class="manual-msg-body">
+          <div class="manual-msg-bubble">{{ answer_message }}</div>
+          {% if manual_results %}
+          <div class="manual-citation-list">
+            {% for result in manual_results %}
+            <article class="manual-citation-card">
+              <div class="manual-citation-top"><span>Página {{ result.page }} do PDF</span><a href="{{ manual_pdf_url }}{{ result.pdf_anchor }}" target="_blank" rel="noopener">Abrir ↗</a></div>
+              <div class="manual-citation-section">{{ result.section }}</div>
+              <blockquote>{{ result.text }}</blockquote>
+            </article>
+            {% endfor %}
+          </div>
+          {% else %}
+          <a class="btn btn-secondary manual-citation-fallback" href="#manual-completo">Consultar o documento completo</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="manual-suggestions" id="manual-suggestions">
+      <span>Perguntas sugeridas:</span>
+      <button type="button" class="manual-suggestion-chip" data-question="Qual a antecedência para solicitar suporte de TI?">Prazo para suporte de TI</button>
+      <button type="button" class="manual-suggestion-chip" data-question="Quais são as etapas de organização de um evento?">Etapas do evento</button>
+      <button type="button" class="manual-suggestion-chip" data-question="Qual a capacidade dos espaços da FMABC?">Capacidade dos espaços</button>
+      <button type="button" class="manual-suggestion-chip" data-question="Como deve ser organizado o cerimonial de colação de grau?">Colação de grau</button>
+    </div>
+
+    <form class="manual-chat-input-row" id="manual-chat-form">
+      <textarea id="manual-chat-input" rows="1" maxlength="350" placeholder="Digite sua pergunta sobre o manual..." required></textarea>
+      <button class="btn btn-primary" type="submit">Enviar <span>→</span></button>
+    </form>
+    <small class="manual-chat-footnote">As respostas são compostas a partir de trechos recuperados do PDF original. Se o manual não trouxer orientação suficiente, o assistente informará isso em vez de inventar uma resposta.</small>
   </section>
-  {% endif %}
 
   <section class="manual-full-section" id="manual-completo">
     <div class="manual-full-heading"><div><div class="eyebrow">DOCUMENTO ORIGINAL</div><h2>Manual na íntegra</h2><p>Visualize as 67 páginas do arquivo enviado, sem substituir o conteúdo original.</p></div><div class="manual-full-actions"><a class="btn btn-secondary" href="{{ manual_pdf_url }}" target="_blank" rel="noopener">Abrir em nova aba <span>↗</span></a><a class="btn btn-primary" href="{{ manual_pdf_url }}" download="Manual_de_Cerimonial_e_Eventos_FMABC_2023.pdf">Baixar PDF <span>↓</span></a></div></div>
@@ -52,4 +71,157 @@
     <div class="manual-version-note"><span>i</span><p>Fonte da consulta: <strong>{{ manual_title }}</strong>, {{ manual_year }}. A ferramenta utiliza somente o texto indexado desse arquivo. Atualizações posteriores do manual deverão ser revisadas e indexadas novamente por uma pessoa administradora.</p></div>
   </section>
 </div>
+
+<script>
+(function () {
+  const form = document.getElementById('manual-chat-form');
+  const input = document.getElementById('manual-chat-input');
+  const messages = document.getElementById('manual-chat-messages');
+  const suggestions = document.getElementById('manual-suggestions');
+  const statusBadge = document.getElementById('manual-chat-status');
+  if (!form || !input || !messages) return;
+
+  const aiEnabled = {{ 'true' if ai_enabled else 'false' }};
+  const pdfUrl = {{ manual_pdf_url | tojson }};
+  const chatUrl = {{ url_for('manual_chat') | tojson }};
+  const csrfToken = {{ csrf_token | tojson }};
+  if (statusBadge) statusBadge.innerHTML = aiEnabled ? '<i></i> Assistente com IA' : '<i></i> Base local';
+
+  let history = [];
+
+  function bubbleWithText(wrapperClass, text) {
+    const div = document.createElement('div');
+    div.className = wrapperClass;
+    const bubble = document.createElement('div');
+    bubble.className = 'manual-msg-bubble';
+    bubble.textContent = text;
+    div.appendChild(bubble);
+    return div;
+  }
+
+  function addUserMessage(text) {
+    const div = document.createElement('div');
+    div.className = 'manual-msg user';
+    const body = document.createElement('div');
+    body.className = 'manual-msg-body';
+    const bubble = document.createElement('div');
+    bubble.className = 'manual-msg-bubble';
+    bubble.textContent = text;
+    body.appendChild(bubble);
+    div.appendChild(body);
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function addTyping() {
+    const div = document.createElement('div');
+    div.className = 'manual-msg bot';
+    div.id = 'manual-typing';
+    div.innerHTML = '<div class="manual-msg-avatar">FM</div><div class="manual-msg-body"><div class="manual-typing"><span></span><span></span><span></span></div></div>';
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('manual-typing');
+    if (el) el.remove();
+  }
+
+  function addBotMessage(answer, results) {
+    const div = document.createElement('div');
+    div.className = 'manual-msg bot';
+    const avatar = document.createElement('div');
+    avatar.className = 'manual-msg-avatar';
+    avatar.textContent = 'FM';
+    const body = document.createElement('div');
+    body.className = 'manual-msg-body';
+    const bubble = document.createElement('div');
+    bubble.className = 'manual-msg-bubble';
+    bubble.textContent = answer;
+    body.appendChild(bubble);
+    if (results && results.length) {
+      const list = document.createElement('div');
+      list.className = 'manual-citation-list';
+      results.forEach(function (r) {
+        const card = document.createElement('article');
+        card.className = 'manual-citation-card';
+        const top = document.createElement('div');
+        top.className = 'manual-citation-top';
+        const pageSpan = document.createElement('span');
+        pageSpan.textContent = 'Página ' + r.page + ' do PDF';
+        const link = document.createElement('a');
+        link.href = pdfUrl + (r.pdf_anchor || '');
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Abrir ↗';
+        top.appendChild(pageSpan);
+        top.appendChild(link);
+        const section = document.createElement('div');
+        section.className = 'manual-citation-section';
+        section.textContent = r.section || '';
+        const quote = document.createElement('blockquote');
+        quote.textContent = r.text || '';
+        card.appendChild(top);
+        card.appendChild(section);
+        card.appendChild(quote);
+        list.appendChild(card);
+      });
+      body.appendChild(list);
+    }
+    div.appendChild(avatar);
+    div.appendChild(body);
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  async function sendQuestion(question) {
+    question = (question || '').trim();
+    if (!question) return;
+    addUserMessage(question);
+    input.value = '';
+    input.style.height = 'auto';
+    addTyping();
+    const body = new URLSearchParams();
+    body.set('question', question);
+    body.set('history', JSON.stringify(history));
+    body.set('_csrf', csrfToken);
+    try {
+      const res = await fetch(chatUrl, { method: 'POST', body: body });
+      const data = await res.json().catch(function () { return {}; });
+      removeTyping();
+      if (!res.ok || data.error) {
+        addBotMessage(data.error || 'Não consegui responder agora. Tente novamente em instantes.', []);
+        return;
+      }
+      addBotMessage(data.answer, data.results || []);
+      history.push({ role: 'user', content: question });
+      history.push({ role: 'assistant', content: data.answer });
+      if (history.length > 12) history = history.slice(-12);
+    } catch (e) {
+      removeTyping();
+      addBotMessage('Não foi possível conectar ao assistente agora. Verifique sua conexão e tente novamente.', []);
+    }
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    sendQuestion(input.value);
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendQuestion(input.value);
+    }
+  });
+  input.addEventListener('input', function () {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+  if (suggestions) {
+    suggestions.querySelectorAll('.manual-suggestion-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { sendQuestion(btn.dataset.question); });
+    });
+  }
+})();
+</script>
 {% endblock %}

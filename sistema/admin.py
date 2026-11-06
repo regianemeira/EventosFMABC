@@ -59,6 +59,72 @@ def support_catalog_management():
     return render_template("support_catalog.html", records=records, categories=categories)
 
 
+@app.route("/formulario-publico", methods=["GET", "POST"])
+@login_required
+def public_form_fields_management():
+    """Perguntas personalizadas adicionadas ao formulário público de solicitação de eventos.
+    Escopo intencionalmente limitado a criar/ativar/inativar/remover/reordenar novas perguntas:
+    as perguntas originais (01 a 17) são fixas no formulário e não podem ser editadas aqui."""
+    if session.get("user_role") != "admin":
+        abort(404)
+    db = get_db()
+    if request.method == "POST":
+        action = request.form.get("action", "create")
+        field_id = request.form.get("field_id", type=int)
+        field = db.execute("SELECT * FROM custom_form_fields WHERE id=?", (field_id,)).fetchone() if field_id else None
+        if action in {"toggle", "delete", "move_up", "move_down"} and not field:
+            flash("Pergunta personalizada não encontrada.", "error")
+            return redirect(url_for("public_form_fields_management"))
+
+        if action == "toggle":
+            db.execute("UPDATE custom_form_fields SET active=?, updated_at=? WHERE id=?",
+                       (0 if field["active"] else 1, now_iso(), field_id))
+            db.commit()
+            flash("Pergunta ativada." if not field["active"] else "Pergunta inativada: ela deixa de aparecer no formulário, mas as respostas já recebidas são mantidas.", "success")
+            return redirect(url_for("public_form_fields_management"))
+
+        if action == "delete":
+            db.execute("DELETE FROM custom_form_fields WHERE id=?", (field_id,))
+            db.commit()
+            flash("Pergunta removida do formulário. As respostas já recebidas continuam no histórico de cada evento.", "success")
+            return redirect(url_for("public_form_fields_management"))
+
+        if action in {"move_up", "move_down"}:
+            siblings = db.execute("SELECT id, sort_order FROM custom_form_fields ORDER BY sort_order, id").fetchall()
+            ids = [s["id"] for s in siblings]
+            pos = ids.index(field_id)
+            swap_pos = pos - 1 if action == "move_up" else pos + 1
+            if 0 <= swap_pos < len(ids):
+                other = siblings[swap_pos]
+                db.execute("UPDATE custom_form_fields SET sort_order=? WHERE id=?", (other["sort_order"], field_id))
+                db.execute("UPDATE custom_form_fields SET sort_order=? WHERE id=?", (field["sort_order"], other["id"]))
+                db.commit()
+            return redirect(url_for("public_form_fields_management"))
+
+        label = (request.form.get("label") or "").strip()
+        field_type = request.form.get("field_type", "text")
+        options = _split_field_options(request.form.get("options"))
+        required = 1 if request.form.get("required") else 0
+        if not label:
+            flash("Informe o texto da pergunta.", "error")
+        elif field_type not in TASK_FIELD_TYPES:
+            flash("Tipo de resposta inválido.", "error")
+        elif field_type == "select" and len(options) < 2:
+            flash("Informe pelo menos duas opções para uma pergunta de lista.", "error")
+        else:
+            order = db.execute("SELECT COALESCE(MAX(sort_order),0)+1 FROM custom_form_fields").fetchone()[0]
+            db.execute("""INSERT INTO custom_form_fields(label, field_type, options, required, active, sort_order, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, 1, ?, ?, ?)""",
+                       (label[:200], field_type, "\n".join(options) if field_type == "select" else None,
+                        required, order, now_iso(), now_iso()))
+            db.commit()
+            flash("Pergunta adicionada. Ela já aparece no formulário de solicitação.", "success")
+        return redirect(url_for("public_form_fields_management"))
+
+    fields = _active_custom_form_fields(db, active_only=False)
+    return render_template("public_form_fields.html", fields=fields, field_types=TASK_FIELD_TYPES)
+
+
 @app.route("/espacos", methods=["GET", "POST"])
 @login_required
 def venue_management():

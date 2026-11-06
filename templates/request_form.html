@@ -47,6 +47,29 @@
     <div class="field span-2"><label for="cost_center">16. Centro de custo <em>*</em></label><input id="cost_center" name="cost_center" required maxlength="120" value="{{ form.get('cost_center','') if form else '' }}" placeholder="Informe o centro de custo"></div>
     <div class="field span-2"><label for="additional_info">17. Informações Adicionais</label><textarea id="additional_info" name="additional_info" rows="4" maxlength="5000" placeholder="Inclua outras informações relevantes, se houver.">{{ form.get('additional_info','') if form else '' }}</textarea></div>
   </div></section>
+  {% if custom_fields %}
+  <section class="form-section"><div class="section-heading"><span class="section-number">05</span><div><h2>Informações adicionais</h2><p>Perguntas adicionadas pelo Setor de Eventos.</p></div></div><div class="form-grid">
+    {% for cf in custom_fields %}
+    <div class="field span-2">
+      <label for="custom_field_{{ cf.id }}">{{ cf.label }}{% if cf.required %} <em>*</em>{% endif %}</label>
+      {% set cf_value = (form.get('custom_field_' ~ cf.id, '') if form else '') %}
+      {% if cf.field_type == 'textarea' %}
+      <textarea id="custom_field_{{ cf.id }}" name="custom_field_{{ cf.id }}" rows="4" maxlength="3000" {% if cf.required %}required{% endif %}>{{ cf_value }}</textarea>
+      {% elif cf.field_type == 'select' %}
+      <select id="custom_field_{{ cf.id }}" name="custom_field_{{ cf.id }}" {% if cf.required %}required{% endif %}><option value="">Selecione</option>{% for opt in cf.options_list %}<option value="{{ opt }}" {% if cf_value == opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}</select>
+      {% elif cf.field_type == 'date' %}
+      <input id="custom_field_{{ cf.id }}" name="custom_field_{{ cf.id }}" type="date" value="{{ cf_value }}" {% if cf.required %}required{% endif %}>
+      {% elif cf.field_type == 'number' %}
+      <input id="custom_field_{{ cf.id }}" name="custom_field_{{ cf.id }}" type="number" step="any" value="{{ cf_value }}" {% if cf.required %}required{% endif %}>
+      {% elif cf.field_type == 'boolean' %}
+      <select id="custom_field_{{ cf.id }}" name="custom_field_{{ cf.id }}" {% if cf.required %}required{% endif %}><option value="">Selecione</option><option value="Sim" {% if cf_value == 'Sim' %}selected{% endif %}>Sim</option><option value="Não" {% if cf_value == 'Não' %}selected{% endif %}>Não</option></select>
+      {% else %}
+      <input id="custom_field_{{ cf.id }}" name="custom_field_{{ cf.id }}" maxlength="300" value="{{ cf_value }}" {% if cf.required %}required{% endif %}>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div></section>
+  {% endif %}
   {% if form and form.get('_errors') %}<div class="inline-alert">{{ form.get('_errors') }}</div>{% endif %}
   <div class="form-submit-row"><p><em>*</em> Campos obrigatórios. O envio não representa aprovação automática do evento.</p><button class="btn btn-primary btn-large" type="submit">Enviar solicitação <span>→</span></button></div>
 </form>

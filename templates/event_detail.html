@@ -23,6 +23,9 @@
     <div class="description-block"><h3>13. Itens necessários</h3><div class="tag-list">{% for item in event_items if item != "Outro" %}<span class="support-tag">{{ item }}</span>{% else %}<span class="muted">Não informado</span>{% endfor %}{% if event.items_other %}<span class="support-tag">Outro: {{ event.items_other }}</span>{% endif %}</div></div>
     <div class="detail-two-col"><div class="description-block"><h3>10. Público-alvo</h3><p>{{ event.audience or 'Não informado' }}</p></div><div class="description-block"><h3>15. Autorizado por</h3><p>{{ event.authorized_by or 'Não informado' }}</p></div></div>
     <div class="detail-two-col"><div class="description-block"><h3>16. Centro de custo</h3><p>{{ event.cost_center or 'Não informado' }}</p></div><div class="description-block"><h3>17. Informações adicionais</h3><p class="preserve-lines">{{ event.additional_info or 'Nenhuma informação adicional enviada.' }}</p></div></div>
+    {% if custom_field_answers %}
+    <div class="description-block"><h3>Perguntas adicionais do formulário</h3><div class="detail-two-col">{% for answer in custom_field_answers %}<div><strong>{{ answer.field_label }}</strong><p class="preserve-lines">{{ answer.value or 'Não informado' }}</p></div>{% endfor %}</div></div>
+    {% endif %}
   </section>
   <section class="panel detail-panel ck-summary-card" id="checklist">
     <div class="panel-heading"><div><div class="eyebrow">PLANEJAMENTO OPERACIONAL</div><h2>Checklist do evento</h2>
