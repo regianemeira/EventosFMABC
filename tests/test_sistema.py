@@ -58,7 +58,8 @@ class SistemaTest(unittest.TestCase):
                    "/relatorios/comparativo-custos", "/relatorios/exportar.csv", "/checklist-consolidado",
                    "/checklist-prazos", "/modelos-checklist", "/cadastros-apoio", "/formulario-publico", "/equipe", "/manual?q=mesa",
                    "/eventos/1", "/eventos/1/editar", "/eventos/1/roteiro", "/eventos/1/orcamento",
-                   "/eventos/1/ocorrencias", "/eventos/1/mensagens", "/eventos/1/finalizar", "/eventos/1/checklist/imprimir", "/espacos",
+                   "/eventos/1/ocorrencias", "/eventos/1/mensagens", "/eventos/1/horas", "/eventos/1/finalizar", "/eventos/1/checklist/imprimir", "/espacos",
+                   "/horas", "/horas/relatorio",
                    "/eventos/1/checklist", "/eventos/1/checklist?agrupar=etapa", "/eventos/1/checklist?agrupar=responsavel"]
         for url in paginas:
             with self.subTest(url=url):
