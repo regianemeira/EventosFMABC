@@ -82,6 +82,9 @@ def _translate_for_postgres(sql: str, add_returning: bool = True) -> str:
     # antes de qualquer INSERT/UPDATE, então a comparação de login não depende disso).
     translated = translated.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
     translated = translated.replace(" COLLATE NOCASE", "")
+    # BLOB (conteúdo binário de anexos, guardado no próprio banco para sobreviver
+    # a cada novo deploy) não existe no Postgres; o equivalente é BYTEA.
+    translated = re.sub(r"\bBLOB\b", "BYTEA", translated)
 
     # cursor.lastrowid (usado após alguns INSERTs) não existe no psycopg2; simulamos
     # acrescentando "RETURNING id" nos INSERTs de tabelas que têm chave "id" serial.

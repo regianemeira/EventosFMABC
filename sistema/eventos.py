@@ -476,9 +476,16 @@ def download_event_attachment(event_id, attachment_id):
     row = get_db().execute("SELECT * FROM event_attachments WHERE id=? AND event_id=?", (attachment_id, event_id)).fetchone()
     if not row:
         abort(404)
+    content = row["content"]
+    if content is not None:
+        mimetype = mimetypes.guess_type(row["original_name"])[0] or "application/octet-stream"
+        return send_file(io.BytesIO(bytes(content)), as_attachment=True, download_name=row["original_name"], mimetype=mimetype)
+    # Anexos antigos (de antes da migração para guardar o arquivo no banco) ainda podem
+    # estar só em disco; tenta achar lá como última alternativa.
     path = ATTACHMENT_DIR / str(event_id) / row["stored_name"]
     if not path.is_file():
-        abort(404)
+        flash("Este anexo foi enviado antes de uma atualização do sistema e o arquivo não está mais disponível. Envie-o novamente.", "error")
+        return redirect(url_for("event_detail", event_id=event_id) + "#anexos")
     return send_file(path, as_attachment=True, download_name=row["original_name"])
 
 

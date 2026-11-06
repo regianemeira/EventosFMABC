@@ -27,6 +27,7 @@ import threading
 import time
 
 import logging
+import mimetypes
 
 import unicodedata
 
@@ -607,6 +608,7 @@ CREATE TABLE IF NOT EXISTS event_attachments (
     event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     original_name TEXT NOT NULL,
     stored_name TEXT NOT NULL UNIQUE,
+    content BLOB,
     size_bytes INTEGER NOT NULL,
     category TEXT NOT NULL DEFAULT 'Outro',
     description TEXT,
@@ -758,6 +760,13 @@ def init_db() -> None:
     log_columns = {row["name"] for row in db.execute("PRAGMA table_info(event_change_log)").fetchall()}
     if "kind" not in log_columns:
         db.execute("ALTER TABLE event_change_log ADD COLUMN kind TEXT NOT NULL DEFAULT 'edicao'")
+        db.commit()
+    # Anexos passam a ser guardados dentro do próprio banco (coluna "content"), não mais
+    # só em disco: em serviços como o Render, sem um disco pago, o disco é apagado a cada
+    # novo deploy e os anexos antigos somem. Bancos já existentes ganham a coluna aqui.
+    attachment_columns = {row["name"] for row in db.execute("PRAGMA table_info(event_attachments)").fetchall()}
+    if "content" not in attachment_columns:
+        db.execute("ALTER TABLE event_attachments ADD COLUMN content BLOB")
         db.commit()
     current = db.execute("SELECT id FROM users LIMIT 1").fetchone()
     if not current:
@@ -2172,13 +2181,14 @@ def store_attachment(db, event_id: int, upload, category: str, description: str 
     if not content:
         return False, f"“{original}” está vazio."
     category = category if category in ATTACHMENT_CATEGORIES else "Outro"
-    folder = ATTACHMENT_DIR / str(event_id)
-    folder.mkdir(parents=True, exist_ok=True)
+    # O conteúdo vai para a coluna "content" (sobrevive a qualquer novo deploy, porque
+    # fica no mesmo banco de dados do resto do sistema). "stored_name" só identifica o
+    # arquivo de forma única; não gravamos mais nada em disco.
     stored = f"{secrets.token_hex(16)}{extension}"
-    (folder / stored).write_bytes(content)
-    db.execute("""INSERT INTO event_attachments(event_id, original_name, stored_name, size_bytes, category, description, uploaded_by, uploaded_at)
-                  VALUES (?,?,?,?,?,?,?,?)""",
-               (event_id, original, stored, len(content), category, (description or "").strip()[:300] or None, uploaded_by, now_iso()))
+    db.execute("""INSERT INTO event_attachments(event_id, original_name, stored_name, content, size_bytes, category, description, uploaded_by, uploaded_at)
+                  VALUES (?,?,?,?,?,?,?,?,?)""",
+               (event_id, original, stored, content, len(content), category,
+                (description or "").strip()[:300] or None, uploaded_by, now_iso()))
     return True, original
 
 
