@@ -118,6 +118,12 @@ def create_event_from_form(form):
          event_type_other, "Não informado", "Não informado", None, None, created, created),
     )
     db.commit()
+    # Cria de imediato as tarefas de checklist ligadas aos serviços de apoio (pergunta 8)
+    # e aos itens necessários (pergunta 13) marcados no formulário, para a equipe já
+    # ver essas pendências separadas assim que a solicitação chega — antes da aprovação.
+    new_event = db.execute("SELECT * FROM events WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    if new_event:
+        add_checklist(new_event)
     return {"id": cursor.lastrowid, "protocol": protocol}, None
 
 
