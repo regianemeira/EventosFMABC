@@ -320,16 +320,59 @@ def time_bank_report():
                            employee_id=employee_id, all_employees=db.execute("SELECT * FROM employees ORDER BY name").fetchall())
 
 
+def _add_collaborator(db, event_id: int, redirect_to: str):
+    employee_id = request.form.get("employee_id", type=int)
+    new_name = (request.form.get("new_collaborator_name") or "").strip()
+    if not employee_id and new_name:
+        cur = db.execute("INSERT INTO employees(name, active, created_at) VALUES (?, 1, ?)", (new_name, now_iso()))
+        employee_id = cur.lastrowid
+    employee = db.execute("SELECT * FROM employees WHERE id=?", (employee_id,)).fetchone() if employee_id else None
+    if not employee:
+        flash("Selecione ou cadastre o nome do colaborador.", "error")
+        return redirect(redirect_to)
+    already = db.execute(
+        "SELECT id FROM event_collaborators WHERE event_id=? AND employee_id=?", (event_id, employee_id)
+    ).fetchone()
+    if already:
+        flash(f"{employee['name']} já está na lista de colaboradores deste evento.", "error")
+        return redirect(redirect_to)
+    db.execute(
+        "INSERT INTO event_collaborators(event_id, employee_id, created_at, created_by) VALUES (?,?,?,?)",
+        (event_id, employee_id, now_iso(), session.get("user_email")),
+    )
+    db.commit()
+    flash(f"{employee['name']} adicionado(a) como colaborador(a) deste evento.", "success")
+    return redirect(redirect_to)
+
+
+@app.post("/eventos/<int:event_id>/horas/colaboradores/remover")
+@login_required
+def remove_event_collaborator(event_id):
+    _require_admin()
+    db = get_db()
+    row_id = request.form.get("collaborator_id", type=int)
+    row = db.execute("SELECT * FROM event_collaborators WHERE id=? AND event_id=?", (row_id, event_id)).fetchone()
+    if row:
+        db.execute("DELETE FROM event_collaborators WHERE id=?", (row_id,))
+        db.commit()
+        flash("Colaborador removido deste evento.", "success")
+    return redirect(url_for("event_time_bank", event_id=event_id))
+
+
 @app.route("/eventos/<int:event_id>/horas", methods=["GET", "POST"])
 @login_required
 def event_time_bank(event_id):
-    """Aba do evento: quem trabalhou, quando e quantas horas — com o cálculo automático de
-    horas extras já feito na hora de salvar."""
+    """Aba do evento: quem ajudou (com ou sem hora lançada), e quando/quanto cada um
+    trabalhou — com o cálculo automático de horas extras já feito na hora de salvar."""
     _require_admin()
     event = get_event_or_404(event_id)
     db = get_db()
     if request.method == "POST":
-        return _save_work_entry(db, redirect_to=url_for("event_time_bank", event_id=event_id))
+        action = (request.form.get("action") or "add_work_entry").strip()
+        redirect_to = url_for("event_time_bank", event_id=event_id)
+        if action == "add_collaborator":
+            return _add_collaborator(db, event_id, redirect_to)
+        return _save_work_entry(db, redirect_to=redirect_to)
     entries = db.execute(
         """SELECT w.*, e.name AS employee_name FROM work_entries w JOIN employees e ON e.id=w.employee_id
            WHERE w.event_id=? ORDER BY w.work_date, w.id""",
@@ -342,5 +385,7 @@ def event_time_bank(event_id):
         "extra_pago_valor": round(sum((e["paid_amount"] or 0) for e in entries if e["settlement_type"] == "pago"), 2),
     }
     all_employees = db.execute("SELECT * FROM employees WHERE active=1 ORDER BY name").fetchall()
+    collaborators = event_collaborators_rows(db, event_id)
     return render_template("event_time_bank.html", event=event, entries=entries, totals=totals,
-                           all_employees=all_employees, standard_hours=STANDARD_WORKDAY_HOURS)
+                           all_employees=all_employees, standard_hours=STANDARD_WORKDAY_HOURS,
+                           collaborators=collaborators)

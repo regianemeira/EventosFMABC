@@ -353,7 +353,9 @@ def event_full_report(event_id):
 
     work_entries = []
     work_totals = None
+    collaborators = []
     if is_admin:
+        collaborators = event_collaborators_rows(db, event_id)
         work_entries = db.execute(
             """SELECT w.*, e.name AS employee_name FROM work_entries w JOIN employees e ON e.id=w.employee_id
                WHERE w.event_id=? ORDER BY w.work_date, w.id""",
@@ -373,7 +375,7 @@ def event_full_report(event_id):
         budget_items=budget_items, budget_totals=budget_totals,
         incidents=incidents, incident_statuses={"aberta": "Aberta", "em_tratamento": "Em tratamento", "resolvida": "Resolvida"},
         closure=closure, evaluation=evaluation, attachments=attachments,
-        work_entries=work_entries, work_totals=work_totals, is_admin=is_admin,
+        work_entries=work_entries, work_totals=work_totals, collaborators=collaborators, is_admin=is_admin,
         status_labels=STATUS_LABELS,
     )
 

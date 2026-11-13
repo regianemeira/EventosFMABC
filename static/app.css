@@ -1210,3 +1210,11 @@ html.nav-collapsed .logout-button{justify-content:center!important;width:48px;pa
 .hours-roster-heading{margin-top:6px;padding-top:14px;border-top:1px solid var(--line)}
 .hours-row-debit td{background:#fff6f6}
 @media(max-width:900px){.hours-layout{grid-template-columns:1fr}}
+.collaborator-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.collaborator-tag{display:flex;align-items:center;gap:6px;background:var(--soft-green,#e7f3ea);color:var(--green-dark,#2c5e55);border-radius:999px;padding:6px 8px 6px 14px;font-size:calc(11.5px * var(--fmabc-font-scale,1));font-weight:600}
+.collaborator-tag small{font-weight:500;opacity:.75}
+.collaborator-tag-remove{background:transparent;border:none;color:inherit;opacity:.55;font-size:11px;line-height:1;padding:3px 5px;border-radius:999px;transition:background .15s,opacity .15s}
+.collaborator-tag-remove:hover{opacity:1;background:#ffffff80}
+.collaborator-add-form{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.collaborator-add-form select,.collaborator-add-form input{flex:1 1 200px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-size:calc(12.5px * var(--fmabc-font-scale,1))}
+.collaborator-add-form button{flex:0 0 auto}

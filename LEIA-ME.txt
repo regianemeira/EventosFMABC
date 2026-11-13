@@ -1,0 +1,14 @@
+CORREÇÃO DE COMPATIBILIDADE — CHECKLIST FMABC EVENTOS
+
+Arquivo incluído: app.py
+
+O que corrige:
+- Evita o erro Jinja UndefinedError: 'task_fields_by_template' is undefined ao abrir os detalhes de um evento.
+- Mantém o template atual e as rotinas existentes de eventos e tarefas.
+
+Importante:
+- Esta correção mantém os campos personalizados ocultos/inativos, pois a versão de app.py e o banco de dados enviados não implementam armazenamento desses campos.
+- Não substitua nem apague o banco de dados.
+- Antes de substituir o app.py, faça uma cópia de segurança do arquivo atual.
+- Substitua o app.py da pasta do projeto pelo arquivo incluído e reinicie o servidor.
+- A sintaxe Python foi validada com py_compile. Não foi possível executar um teste completo da aplicação sem o banco de dados e o ambiente local do projeto.

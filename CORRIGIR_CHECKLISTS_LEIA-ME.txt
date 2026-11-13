@@ -1,0 +1,12 @@
+CORREÇÃO VISUAL — CHECKLIST CONSOLIDADO E MODELOS DE CHECKLIST
+
+Conteúdo: pastas templates/ e static/ do ZIP enviado, com static/app.css atualizado para incluir os estilos ausentes dos dois módulos.
+
+INSTALAÇÃO SEGURA:
+1. Faça uma cópia de segurança da pasta atual static e templates.
+2. Extraia este ZIP na raiz do projeto fmabc_eventos.
+3. Quando solicitado, substitua apenas static/app.css. Os templates incluídos são os arquivos existentes no ZIP enviado; não substitua outros arquivos do app.py ou banco de dados.
+4. Reinicie com Ctrl+C e python app.py. Atualize o navegador com Ctrl+F5.
+
+IMPORTANTE SOBRE /modelos-checklist:
+O código da rota exige user_role == admin e lê a tabela task_templates. O ZIP enviado não inclui app.py nem o banco de dados; portanto, o erro de acesso ainda precisa ser confirmado pelo traceback do terminal após abrir /modelos-checklist. Se aparecer erro 404, confira o perfil admin da sessão. Se aparecer 500, envie as últimas linhas do traceback para identificar se é problema de tabela/coluna ou template.

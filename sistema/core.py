@@ -653,6 +653,15 @@ CREATE TABLE IF NOT EXISTS time_off_entries (
     created_by TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_time_off_employee ON time_off_entries(employee_id, off_date);
+CREATE TABLE IF NOT EXISTS event_collaborators (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    employee_id INTEGER NOT NULL REFERENCES employees(id),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    UNIQUE(event_id, employee_id)
+);
+CREATE INDEX IF NOT EXISTS idx_event_collaborators_event ON event_collaborators(event_id);
 """
 
 STANDARD_WORKDAY_HOURS = 8.0
@@ -876,6 +885,16 @@ def employee_summary_rows(db) -> list[dict]:
             "paid_total": round(paid_total or 0, 2),
         })
     return rows
+
+
+def event_collaborators_rows(db, event_id: int) -> list[dict]:
+    """Colaboradores marcados como tendo ajudado no evento, independente de hora lançada."""
+    return db.execute(
+        """SELECT c.id, c.employee_id, e.name AS employee_name, e.role AS employee_role
+           FROM event_collaborators c JOIN employees e ON e.id = c.employee_id
+           WHERE c.event_id=? ORDER BY e.name""",
+        (event_id,),
+    ).fetchall()
 
 
 def seed_venues(db: sqlite3.Connection) -> None:

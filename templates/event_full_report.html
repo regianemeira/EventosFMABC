@@ -71,6 +71,11 @@
 
 {% if is_admin %}
 <section class="panel">
+  <div class="panel-heading"><div><h2>Colaboradores que ajudaram</h2><p>{{ collaborators|length }} pessoa(s) marcada(s), independente de hora lançada.</p></div></div>
+  <div class="tag-list">{% for c in collaborators %}<span class="support-tag">{{ c.employee_name }}{% if c.employee_role %} — {{ c.employee_role }}{% endif %}</span>{% else %}<span class="muted">Ninguém marcado</span>{% endfor %}</div>
+</section>
+
+<section class="panel">
   <div class="panel-heading"><div><h2>Horas da equipe</h2><p>Trabalhado: {{ work_totals.worked|round(1) if work_totals else 0 }}h · Extra no banco: {{ work_totals.extra_banco|round(1) if work_totals else 0 }}h · Extra paga: {{ work_totals.extra_pago_horas|round(1) if work_totals else 0 }}h (R$ {{ '%.2f'|format(work_totals.extra_pago_valor if work_totals else 0)|replace('.', ',') }})</p></div></div>
   {% if work_entries %}<div class="table-wrap"><table class="data-table">
     <thead><tr><th>Data</th><th>Funcionário</th><th>Horas trabalhadas</th><th>Horas extras</th><th>Destino</th></tr></thead>
@@ -125,8 +130,10 @@
   .report-print-titles span{font-size:10px;color:#5b6b7c}
   .report-print-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:9px;color:#5b6b7c;text-align:right;white-space:nowrap}
   .report-print-footer{display:block!important;margin-top:16px;padding-top:8px;border-top:1px solid #d7e0e8;font-size:8px;color:#8a97a3;break-inside:avoid}
-  .panel{box-shadow:none!important;border:1px solid #bbb!important;break-inside:avoid}
-  .panel-heading{break-after:avoid}
+  .panel{box-shadow:none!important;border:1px solid #bbb!important;break-inside:auto}
+  .panel-heading{break-after:avoid;break-inside:avoid}
+  .description-block{break-inside:avoid}
+  .event-facts{break-inside:avoid}
   .data-table{font-size:9px!important}
   .data-table th,.data-table td{padding:5px!important}
   .data-table thead{display:table-header-group}

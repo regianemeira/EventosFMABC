@@ -18,10 +18,32 @@
   <div class="metric-card"><span class="metric-label">Extras pagas em dinheiro</span><strong class="metric-value">{{ totals.extra_pago_horas|round(1) }}h</strong><span class="metric-sub">R$ {{ '%.2f'|format(totals.extra_pago_valor) }}</span></div>
 </div>
 
+<section class="panel">
+  <div class="panel-heading"><div><h2>Colaboradores que ajudaram neste evento</h2><p>Independente de hora lançada — marque aqui todo mundo que participou.</p></div></div>
+  <div class="collaborator-tags">
+    {% for c in collaborators %}
+    <span class="collaborator-tag">{{ c.employee_name }}{% if c.employee_role %} <small>({{ c.employee_role }})</small>{% endif %}
+      <form method="post" action="{{ url_for('remove_event_collaborator', event_id=event.id) }}" class="inline-action-form" onsubmit="return confirm('Remover {{ c.employee_name }} da lista de colaboradores?');"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="collaborator_id" value="{{ c.id }}"><button class="collaborator-tag-remove" type="submit" title="Remover">✕</button></form>
+    </span>
+    {% else %}<p class="muted">Ninguém marcado ainda.</p>{% endfor %}
+  </div>
+  <form method="post" class="collaborator-add-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="action" value="add_collaborator">
+    <select name="employee_id">
+      <option value="">+ Novo colaborador (digite ao lado)</option>
+      {% for e in all_employees %}<option value="{{ e.id }}">{{ e.name }}{% if e.role %} — {{ e.role }}{% endif %}</option>{% endfor %}
+    </select>
+    <input name="new_collaborator_name" placeholder="Nome do novo colaborador (só se não estiver na lista)">
+    <button class="btn btn-secondary" type="submit">Adicionar colaborador</button>
+  </form>
+</section>
+
 <section class="panel hours-form-panel">
   <div class="panel-heading"><div><h2>Lançar horas trabalhadas neste evento</h2></div></div>
   <form method="post" class="hours-entry-form">
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="action" value="add_work_entry">
     <input type="hidden" name="event_id" value="{{ event.id }}">
     <div class="field"><label for="h-employee">Funcionário</label>
       <select id="h-employee" name="employee_id">
