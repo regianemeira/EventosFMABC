@@ -54,15 +54,29 @@
         <ul class="ck-rows">
           {% for t in g.tasks %}
           <li class="ck-row {% if t.done %}is-done{% endif %}" id="tarefa-{{ t.id }}" data-task="{{ t.id }}" data-bucket="{{ t.bucket }}" data-noowner="{{ 0 if (t.who or t.done) else 1 }}" data-mine="{{ 1 if (t.mine and not t.done) else 0 }}" data-search="{{ (t.title ~ ' ' ~ (t.category or '') ~ ' ' ~ (t.who or ''))|lower }}">
+            <div class="ck-row-main">
             <input class="ck-select" type="checkbox" name="task_ids" value="{{ t.id }}" form="ck-bulk-form" aria-label="Selecionar: {{ t.title }}">
             <button type="button" class="ck-check" data-toggle-url="{{ url_for('toggle_task', event_id=event.id, task_id=t.id) }}" aria-label="{{ 'Reabrir tarefa' if t.done else 'Marcar como concluída' }}: {{ t.title }}" aria-pressed="{{ 'true' if t.done else 'false' }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button>
             <button type="button" class="ck-na {% if t.status == 'nao_se_aplica' %}is-active{% endif %}" data-na-url="{{ url_for('toggle_task_na', event_id=event.id, task_id=t.id) }}" aria-label="{{ 'Reabrir tarefa' if t.status == 'nao_se_aplica' else 'Não se aplica a este evento' }}: {{ t.title }}" aria-pressed="{{ 'true' if t.status == 'nao_se_aplica' else 'false' }}" title="{{ 'Reabrir tarefa' if t.status == 'nao_se_aplica' else 'Não se aplica a este evento — remove da lista sem precisar concluir' }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="5.8" y1="18.2" x2="18.2" y2="5.8"></line></svg></button>
             <button type="button" class="ck-open" data-open="{{ t.id }}">
               <span class="ck-title">{{ t.title }}</span>
-              <span class="ck-meta"><span class="ck-cat">{{ t.category or 'Geral' }}</span><span class="ck-status ck-status-{{ t.status }}" {% if not t.show_status %}hidden{% endif %}>{{ t.status_label }}</span><span class="ck-notes" {% if not t.notes_count %}hidden{% endif %}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"></path></svg><span class="ck-notes-count">{{ t.notes_count }}</span></span></span>
+              <span class="ck-meta"><span class="ck-cat">{{ t.category or 'Geral' }}</span><span class="ck-status ck-status-{{ t.status }}" {% if not t.show_status %}hidden{% endif %}>{{ t.status_label }}</span></span>
             </button>
             <span class="ck-due tone-{{ t.tone }}">{{ t.due_text }}</span>
+            <button type="button" class="ck-notes-toggle" data-notes-toggle="{{ t.id }}" aria-expanded="false" aria-controls="ck-row-notes-{{ t.id }}" title="Observações" aria-label="Observações: {{ t.title }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"></path></svg><span class="ck-notes-count" {% if not t.notes_count %}hidden{% endif %}>{{ t.notes_count }}</span></button>
             <button type="button" class="ck-avatar {% if not t.who %}is-empty{% endif %}" data-assign="{{ t.id }}" title="{{ ('Responsável: ' ~ t.who ~ ' — clique para alterar') if t.who else 'Atribuir responsável' }}" aria-label="{{ ('Responsável: ' ~ t.who ~ '. Alterar') if t.who else 'Atribuir responsável' }}: {{ t.title }}">{{ t.initials or '+' }}</button>
+            </div>
+            <div class="ck-row-notes" id="ck-row-notes-{{ t.id }}" hidden>
+              <ul class="ck-note-list">
+                {% if (t.notes or '').strip() %}<li><small>Registro anterior</small><span class="preserve-lines">{{ t.notes }}</span></li>{% endif %}
+                {% for n in t.note_list %}<li><small>{{ n.author or 'Equipe' }} · {{ n.created_at[8:10] }}/{{ n.created_at[5:7] }} {{ n.created_at[11:16] }}</small><span class="preserve-lines">{{ n.text }}</span></li>{% endfor %}
+              </ul>
+              <form method="post" action="{{ url_for('add_task_note', event_id=event.id, task_id=t.id) }}" class="ck-note-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
+                <label class="sr-only" for="ck-row-note-input-{{ t.id }}">Nova observação</label>
+                <input id="ck-row-note-input-{{ t.id }}" name="text" maxlength="3000" placeholder="Escrever observação…" required>
+                <button class="btn btn-secondary btn-small" type="submit">Enviar</button>
+              </form>
+            </div>
           </li>
           {% endfor %}
         </ul>
@@ -148,18 +162,7 @@
           {% endfor %}</div>{% endif %}
         <noscript><button class="btn btn-primary" type="submit">Salvar</button></noscript>
       </form>
-      <div class="ck-notes-block">
-        <span class="ck-section-title">Observações</span>
-        <ul class="ck-note-list">
-          {% if (t.notes or '').strip() %}<li><small>Registro anterior</small><span class="preserve-lines">{{ t.notes }}</span></li>{% endif %}
-          {% for n in t.note_list %}<li><small>{{ n.author or 'Equipe' }} · {{ n.created_at[8:10] }}/{{ n.created_at[5:7] }} {{ n.created_at[11:16] }}</small><span class="preserve-lines">{{ n.text }}</span></li>{% endfor %}
-        </ul>
-        <form method="post" action="{{ url_for('add_task_note', event_id=event.id, task_id=t.id) }}" class="ck-note-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
-          <label class="sr-only" for="ck-note-{{ t.id }}">Nova observação</label>
-          <input id="ck-note-{{ t.id }}" name="text" maxlength="3000" placeholder="Escrever observação…" required>
-          <button class="btn btn-secondary btn-small" type="submit">Enviar</button>
-        </form>
-      </div>
+      <p class="ck-muted ck-notes-hint">Observações agora ficam direto no item, na lista — clique no ícone <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-2px"><path d="M4 5h16v11H8l-4 4z"></path></svg> ao lado da tarefa.</p>
       <form method="post" action="{{ url_for('delete_task', event_id=event.id, task_id=t.id) }}" class="ck-detail-foot" onsubmit="return confirm('Excluir esta tarefa do checklist?');"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <span>{% if t.template_id %}Criada a partir de um modelo de checklist{% else %}Tarefa criada para este evento{% endif %}</span>
         <button type="submit" class="ck-danger-link">Excluir tarefa</button>
@@ -321,6 +324,17 @@
     form.addEventListener('submit', e => { e.preventDefault(); save(); });
   });
 
+  document.querySelectorAll('.ck-notes-toggle').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.notesToggle;
+    const box = document.getElementById('ck-row-notes-' + id);
+    if (!box) return;
+    const opening = box.hidden;
+    box.hidden = !opening;
+    btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    btn.classList.toggle('is-open', opening);
+    if (opening) { const input = box.querySelector('input[name="text"]'); if (input) input.focus(); }
+  }));
+
   document.querySelectorAll('.ck-note-form').forEach(form => form.addEventListener('submit', async e => {
     e.preventDefault();
     const data = await post(form.action, new FormData(form));
@@ -329,8 +343,8 @@
     const meta = document.createElement('small'); meta.textContent = (data.note.author || 'Equipe') + ' · ' + data.note.when;
     const text = document.createElement('span'); text.className = 'preserve-lines'; text.textContent = data.note.text;
     li.append(meta, text); form.previousElementSibling.append(li); form.reset();
-    const id = form.closest('.ck-detail').dataset.detail; const row = rowOf(id);
-    if (row) { const n = row.querySelector('.ck-notes'); n.hidden = false; n.querySelector('.ck-notes-count').textContent = data.notes_count; }
+    const row = form.closest('.ck-row');
+    if (row) { const toggle = row.querySelector('.ck-notes-toggle'); const count = toggle && toggle.querySelector('.ck-notes-count'); if (count) { count.hidden = false; count.textContent = data.notes_count; } }
   }));
 
   const search = document.getElementById('ck-search');
