@@ -227,7 +227,7 @@ VENUE_OPTIONS = [
 ]
 
 REQUESTED_ITEM_OPTIONS = [
-    "Brindes", "Certificado", "Coffee break", "Credencial", "Divulgação prévia",
+    "Brindes", "Coffee break", "Credencial", "Divulgação prévia",
     "Divulgação posterior", "Equipamentos de áudio visual para apresentação", "Gravação",
     "Inscrição prévia", "Mestre de Cerimônias", "Registro fotográfico",
     "Reserva de Estacionamento", "Transmissão Simultânea", "Outro",
