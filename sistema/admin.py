@@ -343,4 +343,93 @@ def team_management():
     return render_template("team.html", users=users, active_admins=active_admins)
 
 
+# Ordem de dependência (tabela referenciada antes de quem a referencia), a mesma
+# ordem em que o SCHEMA do sistema cria as tabelas — usada para a exportação
+# completa do banco (migração para outro servidor/banco).
+_FULL_DUMP_TABLES = [
+    "users", "events", "tasks", "task_templates", "support_catalog", "departments",
+    "event_department_updates", "department_task_history", "communication_batches",
+    "communication_batch_events", "event_closures", "event_evaluations",
+    "event_program_items", "event_budget_items", "event_incidents",
+    "task_template_fields", "task_field_values", "custom_form_fields",
+    "event_custom_field_values", "event_budget_quotes", "event_change_log",
+    "event_messages", "venues", "venue_blocks", "event_attachments", "employees",
+    "work_entries", "time_off_entries", "event_collaborators", "email_outbox",
+    "info_requests", "reminder_log", "app_settings", "task_notes",
+]
+
+
+def _sql_literal(value) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return repr(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return "'\\x" + bytes(value).hex() + "'::bytea"
+    text = str(value).replace("'", "''")
+    return f"'{text}'"
+
+
+@app.get("/admin/exportar-banco-completo")
+@login_required
+def export_full_database_dump():
+    # Gera uma cópia completa dos dados de todas as tabelas em SQL (formato
+    # PostgreSQL), para restaurar em outro servidor/banco na hora de migrar.
+    # Não exporta a estrutura (CREATE TABLE) porque o próprio sistema já cria
+    # as tabelas automaticamente na primeira vez que roda contra um banco vazio.
+    if session.get("user_role") != "admin":
+        abort(404)
+    db = get_db()
+    lines = [
+        "-- Cópia completa dos dados do Sistema de Eventos FMABC",
+        f"-- Gerada em {now_iso()}",
+        "-- Como usar: rode o sistema uma vez contra o banco novo (vazio) para ele criar",
+        "-- as tabelas sozinho, depois importe este arquivo com:",
+        "--   psql \"<connection string do banco novo>\" -f backup.sql",
+        "BEGIN;",
+        "SET session_replication_role = replica;  -- ignora checagem de chaves estrangeiras durante a restauração",
+        "",
+    ]
+    existing_tables = {
+        row["table_name"] if "table_name" in row.keys() else row[0]
+        for row in db.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')"
+        ).fetchall()
+    } if _dbcompat.USE_POSTGRES else None
+
+    for table in _FULL_DUMP_TABLES:
+        if existing_tables is not None and table not in existing_tables:
+            continue
+        rows = db.execute(f"SELECT * FROM {table}").fetchall()
+        lines.append(f"-- tabela: {table} ({len(rows)} linha(s))")
+        lines.append(f"DELETE FROM {table};")
+        for row in rows:
+            cols = list(row.keys())
+            values = ", ".join(_sql_literal(row[c]) for c in cols)
+            col_list = ", ".join(cols)
+            lines.append(f"INSERT INTO {table} ({col_list}) VALUES ({values});")
+        if rows and "id" in rows[0].keys():
+            lines.append(
+                f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                f"COALESCE((SELECT MAX(id) FROM {table}), 1), "
+                f"(SELECT MAX(id) FROM {table}) IS NOT NULL);"
+            )
+        lines.append("")
+
+    lines.append("SET session_replication_role = DEFAULT;")
+    lines.append("COMMIT;")
+    sql_text = "\n".join(lines)
+    filename = f"backup_fmabc_eventos_{date.today().isoformat()}.sql"
+    return send_file(
+        io.BytesIO(sql_text.encode("utf-8")),
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/sql",
+    )
+
+
 __all__ = [name for name in dict(globals()) if not name.startswith("__")]
