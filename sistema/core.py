@@ -83,6 +83,17 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__, root_path=str(BASE_DIR))
 
+# Atrás de um proxy reverso (ex.: Caddy no VPS da Hostinger), todo acesso chega
+# com o IP do proxy. Sem isto, os limites de tentativas (login, protocolo) valem
+# para todos os usuários de uma vez. TRUSTED_PROXY_COUNT diz quantos proxies
+# confiáveis ficam na frente; use 0 (padrão) quando a aplicação estiver exposta
+# diretamente, senão qualquer pessoa poderia falsificar o próprio IP.
+_TRUSTED_PROXIES = int(os.getenv("TRUSTED_PROXY_COUNT", "0") or 0)
+if _TRUSTED_PROXIES > 0:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=_TRUSTED_PROXIES, x_proto=_TRUSTED_PROXIES, x_host=_TRUSTED_PROXIES)
+
 app.config.update(
     SECRET_KEY=os.getenv("SECRET_KEY") or secrets.token_hex(32),
     SESSION_COOKIE_HTTPONLY=True,
