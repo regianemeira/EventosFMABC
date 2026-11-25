@@ -161,6 +161,46 @@ class SistemaTest(unittest.TestCase):
         self.assertEqual(resposta.status_code, 302)
         self.assertIn("aba=triar", resposta.headers["Location"])
 
+    def test_acompanhamento_exige_protocolo_e_email(self):
+        with sistema.app.app_context():
+            protocolo = sistema.get_db().execute("SELECT protocol FROM events WHERE id=1").fetchone()[0]
+        visitante = sistema.app.test_client()
+        visitante.get("/acompanhar")
+        # Só o protocolo (link de e-mail aberto em outro navegador): não mostra o evento.
+        pagina = visitante.get(f"/acompanhar?protocol={protocolo}").get_data(as_text=True)
+        self.assertNotIn("Evento de teste", pagina)
+        # E-mail errado: não mostra.
+        pagina = self._post("/acompanhar", {"protocol": protocolo, "email": "outra@pessoa.br"}, visitante).get_data(as_text=True)
+        self.assertNotIn("Evento de teste", pagina)
+        # Mensagem sem confirmar: recusada.
+        self._post("/acompanhar/mensagem", {"protocol": protocolo, "message": "Mensagem sem confirmar"}, visitante)
+        # E-mail de contato (sem diferenciar maiúsculas) libera a consulta.
+        pagina = self._post("/acompanhar", {"protocol": protocolo, "email": " Contato@FMABC.br "}, visitante).get_data(as_text=True)
+        self.assertIn("Evento de teste", pagina)
+        # Depois de confirmado, o link só com protocolo e o envio de mensagem funcionam.
+        self.assertIn("Evento de teste", visitante.get(f"/acompanhar?protocol={protocolo}").get_data(as_text=True))
+        self._post("/acompanhar/mensagem", {"protocol": protocolo, "message": "Mensagem confirmada"}, visitante)
+        with sistema.app.app_context():
+            corpos = {r[0] for r in sistema.get_db().execute("SELECT body FROM event_messages WHERE event_id=1")}
+        self.assertIn("Mensagem confirmada", corpos)
+        self.assertNotIn("Mensagem sem confirmar", corpos)
+
+    def test_chat_do_manual_limita_perguntas_quando_ia_ligada(self):
+        visitante = sistema.app.test_client()
+        visitante.get("/manual")
+        original_key, original_ask = sistema.anthropic_api_key, sistema.ask_manual_assistant
+        publico = sys.modules["sistema.publico"]
+        try:
+            publico.anthropic_api_key = lambda: "chave-falsa"
+            publico.ask_manual_assistant = lambda *a, **k: "resposta"
+            codigos = [self._post("/manual/chat", {"question": "mesa"}, visitante).status_code
+                       for _ in range(publico.MANUAL_CHAT_LIMIT_PER_IP + 1)]
+        finally:
+            publico.anthropic_api_key, publico.ask_manual_assistant = original_key, original_ask
+            sistema._ATTEMPTS.clear()
+        self.assertEqual(codigos[:-1], [200] * publico.MANUAL_CHAT_LIMIT_PER_IP)
+        self.assertEqual(codigos[-1], 429)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -246,29 +246,69 @@ def _public_checklist_summary(db, event_id: int) -> dict | None:
     return {"total": total, "done": done, "pct": round((done / total) * 100) if total else 0, "stages": stages}
 
 
+_TRACKED_SESSION_KEY = "tracked_protocols"
+
+
+def _tracked_protocols() -> list[str]:
+    value = session.get(_TRACKED_SESSION_KEY)
+    return value if isinstance(value, list) else []
+
+
+def _remember_tracked_protocol(protocol: str) -> None:
+    # Guarda na sessão os protocolos já confirmados com o e-mail, para que o
+    # solicitante não precise digitar o e-mail de novo a cada mensagem ou link.
+    tracked = [p for p in _tracked_protocols() if p != protocol]
+    session[_TRACKED_SESSION_KEY] = ([protocol] + tracked)[:10]
+
+
+def _email_matches_event(event, email: str) -> bool:
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    known = {(event["organizer_email"] or "").strip().lower(), (event["contact_email"] or "").strip().lower()}
+    known.discard("")
+    return any(secrets.compare_digest(email, item) for item in known)
+
+
 @app.route("/acompanhar", methods=["GET", "POST"])
 def track_request():
-    protocol = (request.form.get("protocol") if request.method == "POST" else request.args.get("protocol")) or ""
-    protocol = protocol.strip().upper()
-    attempted = bool(protocol)
+    """Consulta pública do andamento: exige o protocolo e o e-mail informado na solicitação.
+
+    Depois de confirmados, o protocolo fica lembrado na sessão do navegador; assim
+    os links enviados por e-mail (?protocol=...) e o envio de mensagens funcionam
+    sem pedir o e-mail de novo nesse mesmo navegador."""
+    if request.method == "POST":
+        protocol = (request.form.get("protocol") or "").strip().upper()
+        email = (request.form.get("email") or "").strip()
+    else:
+        protocol = (request.args.get("protocol") or "").strip().upper()
+        email = ""
+    already_confirmed = bool(protocol) and protocol in _tracked_protocols()
+    attempted = request.method == "POST" and bool(protocol)
     result = None
     info_request = None
     checklist_summary = None
     messages = None
-    if protocol:
+    if protocol and (attempted or already_confirmed):
         limit_key = f"track:{request.remote_addr}"
-        if _too_many_attempts(limit_key, 15):
+        if not already_confirmed and _too_many_attempts(limit_key, 15):
             flash("Muitas consultas em pouco tempo. Aguarde 15 minutos e tente novamente.", "error")
-            return render_template("tracking.html", result=None, attempted=False, protocol="", checklist_summary=None,
+            return render_template("tracking.html", result=None, attempted=False, protocol=protocol, checklist_summary=None,
                                    messages=None, sender_labels=SENDER_TYPE_LABELS), 429
         db = get_db()
-        result = db.execute(
-            "SELECT id, protocol, title, start_date, end_date, status, created_at, updated_at, organizer_name FROM events WHERE protocol = ?",
+        event = db.execute(
+            "SELECT id, protocol, title, start_date, end_date, status, created_at, updated_at, organizer_name, "
+            "organizer_email, contact_email FROM events WHERE protocol = ?",
             (protocol,),
         ).fetchone()
-        if not result:
+        if event and (already_confirmed or _email_matches_event(event, email)):
+            result = event
+            _remember_tracked_protocol(protocol)
+        elif attempted:
+            # Mesma mensagem para protocolo inexistente e e-mail errado: não revela
+            # quais protocolos existem.
             _register_attempt(limit_key)
-        else:
+        if result:
             if result["status"] == "aguardando_informacoes":
                 info_request = db.execute(
                     "SELECT * FROM info_requests WHERE event_id=? AND status='aberta' ORDER BY id DESC LIMIT 1",
@@ -292,6 +332,9 @@ def track_request_message():
     limit_key = f"trackmsg:{request.remote_addr}"
     if _too_many_attempts(limit_key, 10):
         flash("Muitas mensagens em pouco tempo. Aguarde 15 minutos e tente novamente.", "error")
+        return redirect(url_for("track_request", protocol=protocol))
+    if protocol not in _tracked_protocols():
+        flash("Confirme o protocolo e o e-mail da solicitação antes de enviar uma mensagem.", "error")
         return redirect(url_for("track_request", protocol=protocol))
     db = get_db()
     event = db.execute(
@@ -412,6 +455,11 @@ def manual_center():
     )
 
 
+# Limites do chat de IA do manual, por hora (ajustáveis no .env).
+MANUAL_CHAT_LIMIT_PER_IP = int(os.getenv("MANUAL_CHAT_LIMIT_PER_IP", "30") or 30)
+MANUAL_CHAT_LIMIT_TOTAL = int(os.getenv("MANUAL_CHAT_LIMIT_TOTAL", "300") or 300)
+
+
 @app.post("/manual/chat")
 def manual_chat():
     """Endpoint usado pelo chat de IA da página do manual (templates/manual.html).
@@ -424,6 +472,17 @@ def manual_chat():
     question = (request.form.get("question") or "").strip()[:350]
     if not question:
         return jsonify({"error": "Digite uma pergunta para consultar o manual."}), 400
+
+    # Cada pergunta respondida pela IA gera custo na conta da Anthropic: limita
+    # por pessoa (IP) e no total, para um robô não esgotar o crédito.
+    if anthropic_api_key():
+        per_ip_key = f"manualchat:{request.remote_addr}"
+        if _too_many_attempts(per_ip_key, MANUAL_CHAT_LIMIT_PER_IP, 3600) or _too_many_attempts(
+            "manualchat:total", MANUAL_CHAT_LIMIT_TOTAL, 3600
+        ):
+            return jsonify({"error": "Muitas perguntas em pouco tempo. Aguarde alguns minutos e tente novamente."}), 429
+        _register_attempt(per_ip_key)
+        _register_attempt("manualchat:total")
 
     history = []
     try:

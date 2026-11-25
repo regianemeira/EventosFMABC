@@ -4,13 +4,14 @@
 <section class="tracking-wrap tracking-wrap-wide">
   <div class="eyebrow">CONSULTA DE PROTOCOLO</div>
   <h1>Acompanhe sua solicitação</h1>
-  <p class="tracking-lead">Informe o protocolo recebido ao enviar o formulário para ver o andamento do seu evento.</p>
+  <p class="tracking-lead">Informe o protocolo recebido ao enviar o formulário e o e-mail cadastrado na solicitação para ver o andamento do seu evento.</p>
   <form method="post" class="tracking-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
     <div class="field"><label for="protocol">Protocolo</label><input id="protocol" name="protocol" required placeholder="FMABC-2026-ABC123" autocapitalize="characters" value="{{ protocol or '' }}"></div>
+    <div class="field"><label for="email">E-mail cadastrado na solicitação</label><input id="email" name="email" type="email" required autocomplete="email" placeholder="seu.email@fmabc.br"></div>
     <button class="btn btn-primary btn-wide" type="submit">Consultar andamento <span>→</span></button>
   </form>
 
-  {% if attempted and not result %}<div class="inline-alert">Não encontramos uma solicitação com esse protocolo. Confira o código recebido por e-mail e tente novamente.</div>{% endif %}
+  {% if attempted and not result %}<div class="inline-alert">Não encontramos uma solicitação com esse protocolo e esse e-mail. Confira o código recebido e use o e-mail informado no formulário (o principal ou o de contato).</div>{% endif %}
 
   {% if result %}
   <div class="tracking-result">
