@@ -70,6 +70,8 @@ O banco SQLite é criado automaticamente em `instance/fmabc_eventos.db`. Para te
 
 ## Publicação em servidor
 
+> **Produção atual:** o sistema roda em https://eventos.appdigital.tech, num VPS da Hostinger com Docker, Caddy e PostgreSQL. Como está montado, como atualizar e como fazer backup: [DEPLOY_HOSTINGER.md](DEPLOY_HOSTINGER.md).
+
 A aplicação pode ser servida com Waitress (incluído em `requirements.txt`), por exemplo:
 
 ```bash
@@ -99,7 +101,6 @@ fmabc_eventos/
 ├── app.py                 # Aplicação Flask, rotas e lógica do fluxo
 ├── requirements.txt       # Dependências Python
 ├── .env.example           # Modelo das configurações locais
-├── Procfile               # Comando de inicialização em hosts compatíveis
 ├── instance/              # Banco SQLite local (criado na execução)
 ├── static/app.css         # Interface responsiva
 └── templates/             # Páginas HTML
